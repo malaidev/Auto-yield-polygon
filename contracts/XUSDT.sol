@@ -297,7 +297,7 @@ interface AToken {
 interface IIEarnManager {
     function recommend(address _token) external view returns (
       string memory choice,
-      uint256 iapr,
+      uint256 fapr,
       uint256 aapr,
       uint256 tapr
     );
@@ -378,15 +378,15 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
 
   Lender public provider = Lender.NONE;
 
-  constructor () public ERC20Detailed("xUSDT", "xUSDT", 6) {
-    token = address(0xdAC17F958D2ee523a2206206994597C13D831ec7);
-    apr = address(0x318135fbD0b40D48fCEF431CCdF6C7926450edFB);
+  constructor () public ERC20Detailed("xend USDT", "xUSDT", 6) {
+    token = address(0xdAC17F958D2ee523a2206206994597C13D831ec7); //erc-20 usdt token address
+    apr = address(0x318135fbD0b40D48fCEF431CCdF6C7926450edFB);   
     aave = address(0x24a42fD28C976A61Df5D00D0599C34c4f90748c8);
     fulcrum = address(0xF013406A0B1d544238083DF0B93ad0d2cBE0f65f);
     aaveToken = address(0x71fc860F7D3A592A4a98740e39dB31d25db65ae8);
     torque = address(0x39AA39c021dfbaE8faC545936693aC917d5E7563);
     dToken = 0;
-    // approveToken();
+    approveToken();
   }
   function set_new_AAVE(address _new_AAVE) public onlyOwner {
       aave = _new_AAVE;
@@ -411,11 +411,12 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
 
   }
 
+  // select lender for token by max apr
   function recommend() public view returns (Lender) {
-    (,uint256 iapr,uint256 aapr,uint256 tapr) = IIEarnManager(apr).recommend(token);
+    (,uint256 fapr,uint256 aapr,uint256 tapr) = IIEarnManager(apr).recommend(token);
     uint256 max = 0;
-    if (iapr > max) {
-      max = iapr;
+    if (fapr > max) {
+      max = fapr;
     }
     if (aapr > max) {
       max = aapr;
@@ -431,16 +432,17 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
     if (max == aapr) {
       newProvider = Lender.AAVE;
     }
-    if (max == iapr) {
+    if (max == fapr) {
       newProvider = Lender.FULCRUM;
     }
     return newProvider;
   }
 
+// get balance of usdt token.
   function balance() public view returns (uint256) {
     return IERC20(token).balanceOf(address(this));
   }
-
+// get lending pool address for aave
   function getAave() public view returns (address) {
     return LendingPoolAddressesProvider(aave).getLendingPool();
   }
@@ -478,7 +480,7 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
   function balanceAave() public view returns (uint256) {
     return IERC20(aaveToken).balanceOf(address(this));
   }
-
+//  withdraw all tokens from lenders.
   function withdrawAll() internal {
     uint256 amount = balanceTorque();
     if (amount > 0) {
@@ -494,6 +496,7 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
     }
   }
 
+// withdraw token amount from lenders.
   function withdrawSome(uint256 _amount) internal {
     if (provider == Lender.TORQUE) {
       uint256 b = balanceTorque();
@@ -511,6 +514,7 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
     }
   }
 
+//   withdraw balance from lenders(FULCRUM, TORQUE, AAVE).
   function rebalance() public {
     Lender newProvider = recommend();
 
