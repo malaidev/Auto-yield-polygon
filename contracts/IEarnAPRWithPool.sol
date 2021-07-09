@@ -353,16 +353,6 @@ library Address {
     }
 }
 
-interface IUniswapROI {
-    function calcUniswapROI(address token) external view returns (uint256, uint256);
-}
-
-contract IUniswapAPR {
-    function getBlocksPerYear() external view returns (uint256);
-    function calcUniswapAPRFromROI(uint256 roi, uint256 createdAt) external view returns (uint256);
-    function calcUniswapAPR(address token, uint256 createdAt) external view returns (uint256);
-}
-
 interface APRWithPoolOracle {
 
   function getLENDFAPR(address token) external view returns (uint256);
@@ -396,14 +386,10 @@ contract IEarnAPRWithPool is Ownable {
     mapping(address => address) public xTokens;
 
     address public UNI;
-    address public UNIROI;
-    address public UNIAPR;
     address public APR;
 
     constructor() public {
         UNI = address(0xc0a47dFe034B400B47bDaD5FecDa2621de6c4d95);
-        UNIROI = address(0xD04cA0Ae1cd8085438FDd8c22A76246F315c2687);
-        UNIAPR = address(0x4c70D89A4681b2151F56Dc2c3FD751aBb9CE3D95);
         APR = address(0xeC3aDd301dcAC0e9B0B880FCf6F92BDfdc002BBc);
 
         addPool(0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643, 9000629);
@@ -452,20 +438,15 @@ contract IEarnAPRWithPool is Ownable {
     function recommend(address _token) public view returns (
       string memory choice,
       uint256 fapr,
-      uint256 aapr,
-      uint256 tapr
+      uint256 aapr
     ) {
-      (  , fapr, , aapr, , tapr,  ) = getAPROptionsInc(_token);
-      return (choice, fapr, aapr, tapr);
+      (fapr,aapr) = getAPROptionsInc(_token);
+      return (choice, fapr, aapr);
     }
 
     function getAPROptionsInc(address _token) public view returns (
-      uint256 _uniswap,
       uint256 _fulcrum,
-      uint256 _unifulcrum,
       uint256 _aave,
-      uint256 _uniaave,
-      uint256 _ddex,
       uint256 _lendf
     ) {
       address xToken = xTokens[_token];
@@ -477,57 +458,38 @@ contract IEarnAPRWithPool is Ownable {
     }
 
     function getAPROptions(address _token) public view returns (
-      uint256 _uniswap,
       uint256 _fulcrum,
-      uint256 _unifulcrum,
       uint256 _aave,
-      uint256 _uniaave,
-      uint256 _ddex,
       uint256 _lendf
     ) {
       return getAPROptionsAdjusted(_token, 0);
     }
 
     function getAPROptionsAdjusted(address _token, uint256 _supply) public view returns (
-      uint256 _uniswap,
       uint256 _fulcrum,
-      uint256 _unifulcrum,
       uint256 _aave,
-      uint256 _uniaave,
       uint256 _lendf
     ) {
       uint256 created = pools[_token];
 
-      if (created > 0) {
-        _uniswap = IUniswapAPR(UNIAPR).calcUniswapAPR(_token, created);
-      }
       address addr;
       addr = fulcrum[_token];
       if (addr != address(0)) {
         _fulcrum = APRWithPoolOracle(APR).getFulcrumAPRAdjusted(addr, _supply);
         created = pools[addr];
-        if (created > 0) {
-          _unifulcrum = IUniswapAPR(UNIAPR).calcUniswapAPR(addr, created);
-        }
       }
       addr = aave[_token];
       if (addr != address(0)) {
         _aave = APRWithPoolOracle(APR).getAaveAPRAdjusted(addr, _supply);
         addr = aaveUni[_token];
         created = pools[addr];
-        if (created > 0) {
-          _uniaave = IUniswapAPR(UNIAPR).calcUniswapAPR(addr, created);
-        }
       }
 
       _lendf = APRWithPoolOracle(APR).getLENDFAPRAdjusted(_token, _supply);
 
       return (
-        _uniswap,
         _fulcrum,
-        _unifulcrum,
         _aave,
-        _uniaave,
         _lendf
       );
     }
@@ -580,18 +542,5 @@ contract IEarnAPRWithPool is Ownable {
       address xToken
     ) public onlyOwner {
         xTokens[token] = xToken;
-    }
-
-    function set_new_UNIROI(address _new_UNIROI) public onlyOwner {
-        UNIROI = _new_UNIROI;
-    }
-    function set_new_UNI(address _new_UNI) public onlyOwner {
-        UNI = _new_UNI;
-    }
-    function set_new_UNIAPR(address _new_UNIAPR) public onlyOwner {
-        UNIAPR = _new_UNIAPR;
-    }
-    function set_new_APR(address _new_APR) public onlyOwner {
-        APR = _new_APR;
     }
 }
