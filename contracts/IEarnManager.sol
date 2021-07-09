@@ -356,13 +356,8 @@ library Address {
 
 interface IIEarnAPR {
     function getAPROptions(address _token) external view returns (
-      uint256 uniapr,
       uint256 fapr,
-      uint256 unifapr,
-      uint256 aapr,
-      uint256 uniaapr,
-      uint256 tapr,
-      uint256 unitapr
+      uint256 aapr
     );
 }
 
@@ -380,10 +375,9 @@ contract IEarnManager is Ownable {
     function recommend(address _token) public view returns (
       string memory choice,
       uint256 fapr,
-      uint256 aapr,
-      uint256 tapr
+      uint256 aapr
     ) {
-      (,fapr,,aapr,,tapr) = IIEarnAPR(APR).getAPROptions(_token);
+      (fapr,aapr) = IIEarnAPR(APR).getAPROptions(_token);
       uint256 max = 0;
       if (fapr > max) {
         max = fapr;
@@ -391,14 +385,8 @@ contract IEarnManager is Ownable {
       if (aapr > max) {
         max = aapr;
       }
-      if (tapr > max) {
-        max = tapr;
-      }
       choice = 'None';
 
-      if (max == tapr) {
-        choice = 'Torque';
-      }
       if (max == aapr) {
         choice = 'Aave';
       }
@@ -408,8 +396,7 @@ contract IEarnManager is Ownable {
       return (
         choice,
         fapr,
-        aapr,
-        tapr
+        aapr
       );
     }
 }

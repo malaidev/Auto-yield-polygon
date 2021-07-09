@@ -270,12 +270,6 @@ library SafeERC20 {
     }
 }
 
-interface Torque {
-    function mint ( uint256 mintAmount ) external returns ( uint256 );
-    function redeem(uint256 redeemTokens) external returns (uint256);
-    function exchangeRateStored() external view returns (uint);
-}
-
 interface Fulcrum {
     function mint(address receiver, uint256 amount) external payable returns (uint256 mintAmount);
     function burn(address receiver, uint256 burnAmount) external returns (uint256 loanAmountPaid);
@@ -297,9 +291,8 @@ interface AToken {
 interface IIEarnManager {
     function recommend(address _token) external view returns (
       string memory choice,
-      uint256 iapr,
-      uint256 aapr,
-      uint256 tapr
+      uint256 fapr,
+      uint256 aapr
     );
 }
 
@@ -364,14 +357,11 @@ contract xMATIC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
   address public token;
   address public fulcrum;
   address public aave;
-  address public torque;
   address public aaveToken;
-  uint256 public dToken;
   address public apr;
 
   enum Lender {
       NONE,
-      TORQUE,
       AAVE,
       FULCRUM
   }
@@ -384,8 +374,6 @@ contract xMATIC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
     aave = address(0x24a42fD28C976A61Df5D00D0599C34c4f90748c8);
     fulcrum = address(0xF013406A0B1d544238083DF0B93ad0d2cBE0f65f);
     aaveToken = address(0x71fc860F7D3A592A4a98740e39dB31d25db65ae8);
-    torque = address(0x39AA39c021dfbaE8faC545936693aC917d5E7563);
-    dToken = 0;
     // approveToken();
   }
   function set_new_AAVE(address _new_AAVE) public onlyOwner {
@@ -400,38 +388,25 @@ contract xMATIC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
   function set_new_ATOKEN(address _new_ATOKEN) public onlyOwner {
       aaveToken = _new_ATOKEN;
   }
-  function set_new_TORQUE(address _new_TORQUE) public onlyOwner {
-      torque = _new_TORQUE;
-  }
-  function set_new_DTOKEN(uint256 _new_DTOKEN) public onlyOwner {
-      dToken = _new_DTOKEN;
-  }
 
   function() external payable {
 
   }
 
   function recommend() public view returns (Lender) {
-    (,uint256 iapr,uint256 aapr,uint256 tapr) = IIEarnManager(apr).recommend(token);
+    (, uint256 fapr,uint256 aapr) = IIEarnManager(apr).recommend(token);
     uint256 max = 0;
-    if (iapr > max) {
-      max = iapr;
+    if (fapr > max) {
+      max = fapr;
     }
     if (aapr > max) {
       max = aapr;
     }
-    if (tapr > max) {
-      max = tapr;
-    }
-
     Lender newProvider = Lender.NONE;
-    if (max == tapr) {
-      newProvider = Lender.TORQUE;
-    }
     if (max == aapr) {
       newProvider = Lender.AAVE;
     }
-    if (max == iapr) {
+    if (max == fapr) {
       newProvider = Lender.FULCRUM;
     }
     return newProvider;
@@ -449,22 +424,10 @@ contract xMATIC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
   }
 
   function approveToken() public {
-      IERC20(token).safeApprove(torque, uint(-1)); //also add to constructor
       IERC20(token).safeApprove(getAaveCore(), uint(-1));
       IERC20(token).safeApprove(fulcrum, uint(-1));
   }
 
-  function balanceTorque() public view returns (uint256) {
-      return IERC20(torque).balanceOf(address(this));
-  }
-  function balanceTorqueInToken() public view returns (uint256) {
-    // Mantisa 1e18 to decimals
-    uint256 b = balanceTorque();
-    if (b > 0) {
-      b = b.mul(Torque(torque).exchangeRateStored()).div(1e18);
-    }
-    return b;
-  }
   function balanceFulcrumInToken() public view returns (uint256) {
     uint256 b = balanceFulcrum();
     if (b > 0) {
@@ -480,11 +443,7 @@ contract xMATIC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
   }
 
   function withdrawAll() internal {
-    uint256 amount = balanceTorque();
-    if (amount > 0) {
-      withdrawTorque(amount);
-    }
-    amount = balanceFulcrum();
+    uint256 amount = balanceFulcrum();
     if (amount > 0) {
       withdrawFulcrum(amount);
     }
@@ -495,13 +454,6 @@ contract xMATIC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
   }
 
   function withdrawSome(uint256 _amount) internal {
-    if (provider == Lender.TORQUE) {
-      uint256 b = balanceTorque();
-      uint256 bT = balanceTorqueInToken();
-      require(bT >= _amount, "insufficient funds");
-      uint256 amount = b.mul(_amount).div(bT);
-      withdrawTorque(amount);
-    }
     if (provider == Lender.AAVE) {
       require(balanceAave() >= _amount, "insufficient funds");
       withdrawAave(_amount);
@@ -522,9 +474,6 @@ contract xMATIC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
       if (newProvider == Lender.FULCRUM) {
         supplyFulcrum(balance());
       }
-      if (newProvider == Lender.TORQUE) {
-        supplyTorque(balance());
-      }
       if (newProvider == Lender.AAVE) {
         supplyAave(balance());
       }
@@ -538,17 +487,11 @@ contract xMATIC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
   function supplyFulcrum(uint amount) public {
       require(Fulcrum(fulcrum).mint(address(this), amount) > 0, "FULCRUM: supply failed");
   }
-  function supplyTorque(uint amount) public {
-      require(Torque(torque).mint(amount) == 0, "TORQUE: supply failed");
-  }
   function withdrawAave(uint amount) internal {
       AToken(aaveToken).redeem(amount);
   }
   function withdrawFulcrum(uint amount) internal {
       require(Fulcrum(fulcrum).burn(address(this), amount) > 0, "FULCRUM: withdraw failed");
-  }
-  function withdrawTorque(uint amount) internal {
-      require(Torque(torque).redeem(amount) == 0, "TORQUE: withdraw failed");
   }
 
   function invest(uint256 _amount)
@@ -588,8 +531,7 @@ contract xMATIC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
 
   function calcPoolValueInToken() public view returns (uint) {
 
-    return balanceTorqueInToken()
-      .add(balanceFulcrumInToken())
+    return balanceFulcrumInToken()
       .add(balanceAave())
       .add(balance());
   }
@@ -631,15 +573,5 @@ contract xMATIC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
       rebalance();
       pool = calcPoolValueInToken();
 
-  }
-  // incase of half-way error
-  function inCaseTokenGetsStuck(IERC20 _TokenAddress) onlyOwner public {
-      uint qty = _TokenAddress.balanceOf(address(this));
-      _TokenAddress.transfer(msg.sender, qty);
-  }
-  // incase of half-way error
-  function inCaseETHGetsStuck() onlyOwner public{
-      (bool result, ) = msg.sender.call.value(address(this).balance)("");
-      require(result, "transfer of ETH failed");
   }
 }
