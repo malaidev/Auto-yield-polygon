@@ -385,11 +385,9 @@ contract IEarnAPRWithPool is Ownable {
     mapping(address => address) public aaveUni;
     mapping(address => address) public xTokens;
 
-    address public UNI;
     address public APR;
 
     constructor() public {
-        UNI = address(0xc0a47dFe034B400B47bDaD5FecDa2621de6c4d95);
         APR = address(0xeC3aDd301dcAC0e9B0B880FCf6F92BDfdc002BBc);
 
         addPool(0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643, 9000629);
@@ -446,8 +444,7 @@ contract IEarnAPRWithPool is Ownable {
 
     function getAPROptionsInc(address _token) public view returns (
       uint256 _fulcrum,
-      uint256 _aave,
-      uint256 _lendf
+      uint256 _aave
     ) {
       address xToken = xTokens[_token];
       uint256 _supply = 0;
@@ -457,56 +454,36 @@ contract IEarnAPRWithPool is Ownable {
       return getAPROptionsAdjusted(_token, _supply);
     }
 
-    function getAPROptions(address _token) public view returns (
-      uint256 _fulcrum,
-      uint256 _aave,
-      uint256 _lendf
-    ) {
-      return getAPROptionsAdjusted(_token, 0);
-    }
+    // function getAPROptions(address _token) public view returns (
+    //   uint256 _fulcrum,
+    //   uint256 _aave
+    // ) {
+    //   return getAPROptionsAdjusted(_token, 0);
+    // }
 
     function getAPROptionsAdjusted(address _token, uint256 _supply) public view returns (
       uint256 _fulcrum,
-      uint256 _aave,
-      uint256 _lendf
+      uint256 _aave
     ) {
-      uint256 created = pools[_token];
+      // uint256 created = pools[_token];
 
       address addr;
       addr = fulcrum[_token];
       if (addr != address(0)) {
         _fulcrum = APRWithPoolOracle(APR).getFulcrumAPRAdjusted(addr, _supply);
-        created = pools[addr];
+        // created = pools[addr];
       }
       addr = aave[_token];
       if (addr != address(0)) {
         _aave = APRWithPoolOracle(APR).getAaveAPRAdjusted(addr, _supply);
         addr = aaveUni[_token];
-        created = pools[addr];
+        // created = pools[addr];
       }
-
-      _lendf = APRWithPoolOracle(APR).getLENDFAPRAdjusted(_token, _supply);
 
       return (
         _fulcrum,
-        _aave,
-        _lendf
+        _aave
       );
-    }
-
-    function viewPool(address _token) public view returns (
-      address token,
-      address unipool,
-      uint256 created,
-      string memory name,
-      string memory symbol
-    ) {
-      token = _token;
-      unipool = IUniswapFactory(UNI).getExchange(_token);
-      created = pools[_token];
-      name = IERC20(_token).name();
-      symbol = IERC20(_token).symbol();
-      return (token, unipool, created, name, symbol);
     }
 
     function addPool(
