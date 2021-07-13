@@ -134,38 +134,6 @@ contract ReentrancyGuard {
     }
 }
 
-contract Ownable is Context {
-    address private _owner;
-
-    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
-    constructor () internal {
-        _owner = _msgSender();
-        emit OwnershipTransferred(address(0), _owner);
-    }
-    function owner() public view returns (address) {
-        return _owner;
-    }
-    modifier onlyOwner() {
-        require(isOwner(), "Ownable: caller is not the owner");
-        _;
-    }
-    function isOwner() public view returns (bool) {
-        return _msgSender() == _owner;
-    }
-    function renounceOwnership() public onlyOwner {
-        emit OwnershipTransferred(_owner, address(0));
-        _owner = address(0);
-    }
-    function transferOwnership(address newOwner) public onlyOwner {
-        _transferOwnership(newOwner);
-    }
-    function _transferOwnership(address newOwner) internal {
-        require(newOwner != address(0), "Ownable: new owner is the zero address");
-        emit OwnershipTransferred(_owner, newOwner);
-        _owner = newOwner;
-    }
-}
-
 library SafeMath {
     function add(uint256 a, uint256 b) internal pure returns (uint256) {
         uint256 c = a + b;
@@ -348,7 +316,7 @@ interface LendingPoolAddressesProvider {
     function getLendingPoolCore() external view returns (address);
 }
 
-contract xUSDC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
+contract xUSDC is ERC20, ERC20Detailed, ReentrancyGuard, Structs {
   using SafeERC20 for IERC20;
   using Address for address;
   using SafeMath for uint256;
@@ -368,25 +336,66 @@ contract xUSDC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
 
   Lender public provider = Lender.NONE;
 
-  constructor () public ERC20Detailed("xUSDC", "xUSDC", 6) {
-    token = address(0xdAC17F958D2ee523a2206206994597C13D831ec7);
-    apr = address(0x318135fbD0b40D48fCEF431CCdF6C7926450edFB);
+  constructor () public ERC20Detailed("xend USDC", "xUSDC", 6) {
+    token = address(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
+    apr = address(0xdD6d648C991f7d47454354f4Ef326b04025a48A8);
     aave = address(0x24a42fD28C976A61Df5D00D0599C34c4f90748c8);
     fulcrum = address(0xF013406A0B1d544238083DF0B93ad0d2cBE0f65f);
-    aaveToken = address(0x71fc860F7D3A592A4a98740e39dB31d25db65ae8);
-    // approveToken();
+    aaveToken = address(0x9bA00D6856a4eDF4665BcA2C2309936572473B7E);
+    approveToken();
   }
-  function set_new_AAVE(address _new_AAVE) public onlyOwner {
-      aave = _new_AAVE;
+
+  // Quick swap low gas method for pool swaps
+  function deposit(uint256 _amount)
+      external
+      nonReentrant
+  {
+      require(_amount > 0, "deposit must be greater than 0");
+      pool = _calcPoolValueInToken();
+
+      IERC20(token).safeTransferFrom(msg.sender, address(this), _amount);
+
+      // Calculate pool shares
+      uint256 shares = 0;
+      if (pool == 0) {
+        shares = _amount;
+        pool = _amount;
+      } else {
+        shares = (_amount.mul(_totalSupply)).div(pool);
+      }
+      pool = _calcPoolValueInToken();
+      _mint(msg.sender, shares);
   }
-  function set_new_APR(address _new_APR) public onlyOwner {
-      apr = _new_APR;
-  }
-  function set_new_FULCRUM(address _new_FULCRUM) public onlyOwner {
-      fulcrum = _new_FULCRUM;
-  }
-  function set_new_ATOKEN(address _new_ATOKEN) public onlyOwner {
-      aaveToken = _new_ATOKEN;
+
+  // No rebalance implementation for lower fees and faster swaps
+  function withdraw(uint256 _shares)
+      external
+      nonReentrant
+  {
+      require(_shares > 0, "withdraw must be greater than 0");
+
+      uint256 ibalance = balanceOf(msg.sender);
+      require(_shares <= ibalance, "insufficient balance");
+
+      // Could have over value from cTokens
+      pool = _calcPoolValueInToken();
+      // Calc to redeem before updating balances
+      uint256 r = (pool.mul(_shares)).div(_totalSupply);
+
+
+      _balances[msg.sender] = _balances[msg.sender].sub(_shares, "redeem amount exceeds balance");
+      _totalSupply = _totalSupply.sub(_shares);
+
+      emit Transfer(msg.sender, address(0), _shares);
+
+      // Check balance
+      uint256 b = IERC20(token).balanceOf(address(this));
+      if (b < r) {
+        _withdrawSome(r.sub(b));
+      }
+
+      IERC20(token).transfer(msg.sender, r);
+      pool = _calcPoolValueInToken();
   }
 
   function() external payable {
@@ -405,8 +414,7 @@ contract xUSDC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
     Lender newProvider = Lender.NONE;
     if (max == aapr) {
       newProvider = Lender.AAVE;
-    }
-    if (max == fapr) {
+    } else if (max == fapr) {
       newProvider = Lender.FULCRUM;
     }
     return newProvider;
@@ -442,24 +450,52 @@ contract xUSDC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
     return IERC20(aaveToken).balanceOf(address(this));
   }
 
-  function withdrawAll() internal {
-    uint256 amount = balanceFulcrum();
-    if (amount > 0) {
-      withdrawFulcrum(amount);
+  function _balance() internal view returns (uint256) {
+    return IERC20(token).balanceOf(address(this));
+  }
+
+  function _balanceFulcrumInToken() internal view returns (uint256) {
+    uint256 b = balanceFulcrum();
+    if (b > 0) {
+      b = Fulcrum(fulcrum).assetBalanceOf(address(this));
     }
-    amount = balanceAave();
+    return b;
+  }
+  function _balanceFulcrum() internal view returns (uint256) {
+    return IERC20(fulcrum).balanceOf(address(this));
+  }
+  function _balanceAave() internal view returns (uint256) {
+    return IERC20(aaveToken).balanceOf(address(this));
+  }
+
+  function _withdrawAll() internal {
+    uint256  amount = _balanceFulcrum();
     if (amount > 0) {
-      withdrawAave(amount);
+      _withdrawFulcrum(amount);
+    }
+    amount = _balanceAave();
+    if (amount > 0) {
+      _withdrawAave(amount);
     }
   }
 
-  function withdrawSome(uint256 _amount) internal {
+  function _withdrawSomeFulcrum(uint256 _amount) internal {
+    uint256 b = balanceFulcrum(); // 1970469086655766652
+    // Balance of token in fulcrum
+    uint256 bT = balanceFulcrumInToken(); // 2000000803224344406
+    require(bT >= _amount, "insufficient funds");
+    // can have unintentional rounding errors
+    uint256 amount = (b.mul(_amount)).div(bT).add(1);
+    _withdrawFulcrum(amount);
+  }
+
+  function _withdrawSome(uint256 _amount) internal {
     if (provider == Lender.AAVE) {
       require(balanceAave() >= _amount, "insufficient funds");
-      withdrawAave(_amount);
+      _withdrawAave(_amount);
     }
     if (provider == Lender.FULCRUM) {
-      withdrawFulcrum(_amount);
+      _withdrawSomeFulcrum(_amount);
     }
   }
 
@@ -467,15 +503,27 @@ contract xUSDC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
     Lender newProvider = recommend();
 
     if (newProvider != provider) {
-      withdrawAll();
+      _withdrawAll();
     }
 
     if (balance() > 0) {
       if (newProvider == Lender.FULCRUM) {
         supplyFulcrum(balance());
-      }
-      if (newProvider == Lender.AAVE) {
+      } else if (newProvider == Lender.AAVE) {
         supplyAave(balance());
+      }
+    }
+
+    provider = newProvider;
+  }
+
+  // Internal only rebalance for better gas in redeem
+  function _rebalance(Lender newProvider) internal {
+    if (_balance() > 0) {
+      if (newProvider == Lender.FULCRUM) {
+        supplyFulcrum(_balance());
+      } else if (newProvider == Lender.AAVE) {
+        supplyAave(_balance());
       }
     }
     provider = newProvider;
@@ -487,10 +535,10 @@ contract xUSDC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
   function supplyFulcrum(uint amount) public {
       require(Fulcrum(fulcrum).mint(address(this), amount) > 0, "FULCRUM: supply failed");
   }
-  function withdrawAave(uint amount) internal {
+  function _withdrawAave(uint amount) internal {
       AToken(aaveToken).redeem(amount);
   }
-  function withdrawFulcrum(uint amount) internal {
+  function _withdrawFulcrum(uint amount) internal {
       require(Fulcrum(fulcrum).burn(address(this), amount) > 0, "FULCRUM: withdraw failed");
   }
 
@@ -517,16 +565,10 @@ contract xUSDC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
       _mint(msg.sender, shares);
   }
 
-  // Invest self eth from external profits
-  function investSelf()
-      external
-      nonReentrant
-      onlyOwner
-  {
-      uint b = IERC20(token).balanceOf(address(this));
-      require(b > 0, "deposit must be greater than 0");
-      rebalance();
-      pool = calcPoolValueInToken();
+  function _calcPoolValueInToken() internal view returns (uint) {
+    return _balanceFulcrumInToken()
+      .add(_balanceAave())
+      .add(_balance());
   }
 
   function calcPoolValueInToken() public view returns (uint) {
@@ -553,7 +595,7 @@ contract xUSDC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
 
       // Could have over value from cTokens
       pool = calcPoolValueInToken();
-      // Calc eth to redeem before updating balances
+
       uint256 r = (pool.mul(_shares)).div(_totalSupply);
 
 
@@ -564,14 +606,21 @@ contract xUSDC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
 
       // Check ETH balance
       uint256 b = IERC20(token).balanceOf(address(this));
+      Lender newProvider = provider;
       if (b < r) {
-        withdrawSome(r);
+        newProvider = recommend();
+        if (newProvider != provider) {
+          _withdrawAll();
+        } else {
+          _withdrawSome(r.sub(b));
+        }
       }
 
       IERC20(token).safeTransfer(msg.sender, r);
 
-      rebalance();
+      if (newProvider != provider) {
+        _rebalance(newProvider);
+      }
       pool = calcPoolValueInToken();
-
   }
 }
