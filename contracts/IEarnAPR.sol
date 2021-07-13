@@ -1,5 +1,5 @@
 /**
- *Submitted for verification at Etherscan.io on 2020-02-06
+ *Submitted for verification at Etherscan.io on 2020-01-28
 */
 
 // File: @openzeppelin\contracts\token\ERC20\IERC20.sol
@@ -353,29 +353,16 @@ library Address {
     }
 }
 
-interface APRWithPoolOracle {
-
-  function getLENDFAPR(address token) external view returns (uint256);
-  function getLENDFAPRAdjusted(address token, uint256 _supply) external view returns (uint256);
+interface IAPROracle {
   function getFulcrumAPR(address token) external view returns(uint256);
-  function getFulcrumAPRAdjusted(address token, uint256 _supply) external view returns(uint256);
-  function getAaveCore() external view returns (address);
   function getAaveAPR(address token) external view returns (uint256);
-  function getAaveAPRAdjusted(address token, uint256 _supply) external view returns (uint256);
-
 }
 
 interface IUniswapFactory {
     function getExchange(address token) external view returns (address exchange);
 }
 
-interface IxToken {
-  function calcPoolValueInToken() external view returns (uint256);
-  function decimals() external view returns (uint256);
-}
-
-
-contract IEarnAPRWithPool is Ownable {
+contract IEarnAPR is Ownable {
     using SafeMath for uint;
     using Address for address;
 
@@ -383,14 +370,13 @@ contract IEarnAPRWithPool is Ownable {
     mapping(address => address) public fulcrum;
     mapping(address => address) public aave;
     mapping(address => address) public aaveUni;
-    mapping(address => address) public xTokens;
 
     address public UNI;
     address public APR;
 
     constructor() public {
         UNI = address(0xc0a47dFe034B400B47bDaD5FecDa2621de6c4d95);
-        APR = address(0xeC3aDd301dcAC0e9B0B880FCf6F92BDfdc002BBc);
+        APR = address(0x97FF4A1b787ADe6b94cca95b61F79417c673331D);
 
         addPool(0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643, 9000629);
         addPool(0xF5DCe57282A584D2746FaF1593d3121Fcac444dC, 7723867);
@@ -425,72 +411,30 @@ contract IEarnAPRWithPool is Ownable {
         addAUniToken(0xdAC17F958D2ee523a2206206994597C13D831ec7, 0x71fc860F7D3A592A4a98740e39dB31d25db65ae8); // aUSDT
         addAUniToken(0x57Ab1ec28D129707052df4dF418D58a2D46d5f51, 0x625aE63000f46200499120B906716420bd059240); // aSUSD
         addAUniToken(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599, 0xFC4B8ED459e00e5400be803A9BB3954234FD50e3); // aWBTC
-
-        addXToken(0x6B175474E89094C44Da98b954EedeAC495271d0F, 0x9D25057e62939D3408406975aD75Ffe834DA4cDd); // xMATIC
-        addXToken(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48, 0xa2609B2b43AC0F5EbE27deB944d2a399C201E3dA); // xUSDC
-        addXToken(0xdAC17F958D2ee523a2206206994597C13D831ec7, 0xa1787206d5b1bE0f432C4c4f96Dc4D1257A1Dd14); // xUSDT
-        addXToken(0x57Ab1ec28D129707052df4dF418D58a2D46d5f51, 0x36324b8168f960A12a8fD01406C9C78143d41380); // xSUSD
-        addXToken(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599, 0x04EF8121aD039ff41d10029c91EA1694432514e9); // xWBTC
-
-    }
-
-    // Wrapper for legacy v1 token support
-    function recommend(address _token) public view returns (
-      string memory choice,
-      uint256 fapr,
-      uint256 aapr
-    ) {
-      (fapr,aapr) = getAPROptionsInc(_token);
-      return (choice, fapr, aapr);
-    }
-
-    function getAPROptionsInc(address _token) public view returns (
-      uint256 _fulcrum,
-      uint256 _aave,
-      uint256 _lendf
-    ) {
-      address xToken = xTokens[_token];
-      uint256 _supply = 0;
-      if (xToken != address(0)) {
-        _supply = IxToken(xToken).calcPoolValueInToken();
-      }
-      return getAPROptionsAdjusted(_token, _supply);
     }
 
     function getAPROptions(address _token) public view returns (
-      uint256 _fulcrum,
-      uint256 _aave,
-      uint256 _lendf
-    ) {
-      return getAPROptionsAdjusted(_token, 0);
-    }
-
-    function getAPROptionsAdjusted(address _token, uint256 _supply) public view returns (
-      uint256 _fulcrum,
-      uint256 _aave,
-      uint256 _lendf
+      uint256 fapr,
+      uint256 aapr
     ) {
       uint256 created = pools[_token];
 
-      address addr;
-      addr = fulcrum[_token];
-      if (addr != address(0)) {
-        _fulcrum = APRWithPoolOracle(APR).getFulcrumAPRAdjusted(addr, _supply);
-        created = pools[addr];
+      address fToken = fulcrum[_token];
+      address aToken = aave[_token];
+    
+      if (fToken != address(0)) {
+        fapr = IAPROracle(APR).getFulcrumAPR(fToken);
+        created = pools[fToken];
       }
-      addr = aave[_token];
-      if (addr != address(0)) {
-        _aave = APRWithPoolOracle(APR).getAaveAPRAdjusted(addr, _supply);
-        addr = aaveUni[_token];
-        created = pools[addr];
+      if (aToken != address(0)) {
+        aapr = IAPROracle(APR).getAaveAPR(aToken);
+        aToken = aaveUni[_token];
+        created = pools[aToken];
       }
-
-      _lendf = APRWithPoolOracle(APR).getLENDFAPRAdjusted(_token, _supply);
-
+    
       return (
-        _fulcrum,
-        _aave,
-        _lendf
+        fapr,
+        aapr,
       );
     }
 
@@ -535,12 +479,5 @@ contract IEarnAPRWithPool is Ownable {
       address aToken
     ) public onlyOwner {
         aaveUni[token] = aToken;
-    }
-
-    function addXToken(
-      address token,
-      address xToken
-    ) public onlyOwner {
-        xTokens[token] = xToken;
     }
 }
