@@ -369,11 +369,11 @@ contract xMATIC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
   Lender public provider = Lender.NONE;
 
   constructor () public ERC20Detailed("xend MATIC", "xMATIC", 8) {
-    token = address(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
+    token = address(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
     apr = address(0xdD6d648C991f7d47454354f4Ef326b04025a48A8);
-    aave = address(0x24a42fD28C976A61Df5D00D0599C34c4f90748c8);
-    fulcrum = address(0xBA9262578EFef8b3aFf7F60Cd629d6CC8859C8b5);
-    aaveToken = address(0xFC4B8ED459e00e5400be803A9BB3954234FD50e3);
+    aave = address(0xd05e3E715d945B59290df0ae8eF85c1BdB684744);
+    fulcrum = address(0x2e1a74a16e3a9f8e3d825902ab9fb87c606cb13f);
+    aaveToken = address(0x8dF3aad3a84da6b69A4DA8aeC3eA40d9091B2Ac4);
     // approveToken();
   } 
 
