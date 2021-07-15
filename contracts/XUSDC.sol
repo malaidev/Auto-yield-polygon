@@ -337,11 +337,11 @@ contract xUSDC is ERC20, ERC20Detailed, ReentrancyGuard, Structs {
   Lender public provider = Lender.NONE;
 
   constructor () public ERC20Detailed("xend USDC", "xUSDC", 6) {
-    token = address(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
+    token = address(0x2791bca1f2de4661ed88a30c99a7a9449aa84174);
     apr = address(0xdD6d648C991f7d47454354f4Ef326b04025a48A8);
-    aave = address(0x24a42fD28C976A61Df5D00D0599C34c4f90748c8);
-    fulcrum = address(0xF013406A0B1d544238083DF0B93ad0d2cBE0f65f);
-    aaveToken = address(0x9bA00D6856a4eDF4665BcA2C2309936572473B7E);
+    aave = address(0xd05e3E715d945B59290df0ae8eF85c1BdB684744);
+    fulcrum = address(0x2e1a74a16e3a9f8e3d825902ab9fb87c606cb13f);
+    aaveToken = address(0x1a13F4Ca1d028320A707D99520AbFefca3998b7F);
     approveToken();
   }
 
