@@ -369,11 +369,19 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
   Lender public provider = Lender.NONE;
 
   constructor () public ERC20Detailed("xend USDT", "xUSDT", 6) {
-    token = address(0xdAC17F958D2ee523a2206206994597C13D831ec7);
+    //mumbai network
+    // token = address(0xA02f6adc7926efeBBd59Fd43A84f4E0c0c91e832);
+    // apr = address(0xdD6d648C991f7d47454354f4Ef326b04025a48A8);
+    // aave = address(0x178113104fEcbcD7fF8669a0150721e231F0FD4B);
+    // fulcrum = address(0x2e1a74a16e3a9f8e3d825902ab9fb87c606cb13f);
+    // aaveToken = address(0x60D55F02A771d515e077c9C2403a1ef324885CeC);
+
+    // matic network
+    token = address(0xc2132d05d31c914a87c6611c10748aeb04b58e8f);
     apr = address(0xdD6d648C991f7d47454354f4Ef326b04025a48A8);
-    aave = address(0x24a42fD28C976A61Df5D00D0599C34c4f90748c8);
-    fulcrum = address(0xF013406A0B1d544238083DF0B93ad0d2cBE0f65f);
-    aaveToken = address(0x71fc860F7D3A592A4a98740e39dB31d25db65ae8);
+    aave = address(0xd05e3E715d945B59290df0ae8eF85c1BdB684744);
+    fulcrum = address(0x2e1a74a16e3a9f8e3d825902ab9fb87c606cb13f);
+    aaveToken = address(0x60D55F02A771d515e077c9C2403a1ef324885CeC);
     approveToken();
   }
 
