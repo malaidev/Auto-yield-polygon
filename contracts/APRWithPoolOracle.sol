@@ -267,7 +267,9 @@ contract APRWithPoolOracle is Ownable, Structs {
   uint256 public liquidationRatio;
 
   constructor() public {
-    AAVE = address(0x24a42fD28C976A61Df5D00D0599C34c4f90748c8);
+    //mumbai
+    AAVE = address(0x178113104fEcbcD7fF8669a0150721e231F0FD4B);
+    // AAVE = address(0xd05e3E715d945B59290df0ae8eF85c1BdB684744);
     liquidationRatio = 50000000000000000;
   }
 
