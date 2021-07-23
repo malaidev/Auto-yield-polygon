@@ -345,7 +345,7 @@ contract Structs {
 
 interface LendingPoolAddressesProvider {
     function getLendingPool() external view returns (address);
-    function getLendingPoolCore() external view returns (address);
+    function getLendingPoolCollateralManager() external view returns (address);
 }
 
 contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
@@ -370,18 +370,18 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
 
   constructor () public ERC20Detailed("xend USDT", "xUSDT", 6) {
     //mumbai network
-    // token = address(0xA02f6adc7926efeBBd59Fd43A84f4E0c0c91e832);
-    // apr = address(0xdD6d648C991f7d47454354f4Ef326b04025a48A8);
-    // aave = address(0x178113104fEcbcD7fF8669a0150721e231F0FD4B);
-    // fulcrum = address(0x2e1a74a16e3a9f8e3d825902ab9fb87c606cb13f);
-    // aaveToken = address(0x60D55F02A771d515e077c9C2403a1ef324885CeC);
+    token = address(0x66ee15e40ef0137484e01082e33b177cea68b948);
+    apr = address(0xCC7986A6a8A0774070868Cf0D4aCe451DbEC76EF);
+    aave = address(0x178113104fEcbcD7fF8669a0150721e231F0FD4B);
+    fulcrum = address(0x18d755c981a550b0b8919f1de2cdf882f489c155);
+    aaveToken = address(0xF8744C0bD8C7adeA522d6DDE2298b17284A79D1b);
 
     // matic network
-    token = address(0xc2132d05d31c914a87c6611c10748aeb04b58e8f);
-    apr = address(0xdD6d648C991f7d47454354f4Ef326b04025a48A8);
-    aave = address(0xd05e3E715d945B59290df0ae8eF85c1BdB684744);
-    fulcrum = address(0x2e1a74a16e3a9f8e3d825902ab9fb87c606cb13f);
-    aaveToken = address(0x60D55F02A771d515e077c9C2403a1ef324885CeC);
+    // token = address(0xc2132d05d31c914a87c6611c10748aeb04b58e8f);
+    // apr = address(0xdD6d648C991f7d47454354f4Ef326b04025a48A8);
+    // aave = address(0xd05e3E715d945B59290df0ae8eF85c1BdB684744);
+    // fulcrum = address(0x18d755c981a550b0b8919f1de2cdf882f489c155);
+    // aaveToken = address(0x60D55F02A771d515e077c9C2403a1ef324885CeC);
     approveToken();
   }
 
@@ -471,7 +471,7 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
     return LendingPoolAddressesProvider(aave).getLendingPool();
   }
   function getAaveCore() public view returns (address) {
-    return LendingPoolAddressesProvider(aave).getLendingPoolCore();
+    return LendingPoolAddressesProvider(aave).getLendingPoolCollateralManager();
   }
 
   function approveToken() public {
