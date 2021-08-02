@@ -370,18 +370,18 @@ contract xAAVE is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
 
   constructor () public ERC20Detailed("xend AAVE", "xAAVE", 8) {
     //mumbai network
-    token = address(0x57baea64620d5b7254fff6976859a53d4b71d950);
-    apr = address(0xCC7986A6a8A0774070868Cf0D4aCe451DbEC76EF);
-    aave = address(0x178113104fEcbcD7fF8669a0150721e231F0FD4B);
-    fulcrum = address(0xf009c28b2d9e13886105714b895f013e2e43ee12);
-    aaveToken = address(0x7ec62b6fC19174255335C8f4346E0C2fcf870a6B);
-    approveToken();
-    
-    // token = address(0xd6df932a45c0f255f85145f286ea0b292b21c90b);
-    // apr = address(0xdD6d648C991f7d47454354f4Ef326b04025a48A8);
-    // aave = address(0xd05e3E715d945B59290df0ae8eF85c1BdB684744);
+    // token = address(0x57baea64620d5b7254fff6976859a53d4b71d950);
+    // apr = address(0xCC7986A6a8A0774070868Cf0D4aCe451DbEC76EF);
+    // aave = address(0x178113104fEcbcD7fF8669a0150721e231F0FD4B);
     // fulcrum = address(0xf009c28b2d9e13886105714b895f013e2e43ee12);
-    // aaveToken = address(0x1d2a0E5EC8E5bBDCA5CB219e649B565d8e5c3360);
+    // aaveToken = address(0x7ec62b6fC19174255335C8f4346E0C2fcf870a6B);
+    
+    token = address(0xd6df932a45c0f255f85145f286ea0b292b21c90b);
+    apr = address(0xdD6d648C991f7d47454354f4Ef326b04025a48A8);
+    aave = address(0xd05e3E715d945B59290df0ae8eF85c1BdB684744);
+    fulcrum = address(0xf009c28b2d9e13886105714b895f013e2e43ee12);
+    aaveToken = address(0x1d2a0E5EC8E5bBDCA5CB219e649B565d8e5c3360);
+    approveToken();
   }
 
   // Ownable setters incase of support in future for these systems
