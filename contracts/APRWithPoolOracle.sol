@@ -213,39 +213,30 @@ interface Fulcrum {
 }
 
 interface LendingPoolAddressesProvider {
-    function getLendingPoolCore() external view returns (address);
+    function getLendingPoolCollateralManager() external view returns (address);
 }
 
-interface LendingPoolCore  {
-  function getReserveCurrentLiquidityRate(address _reserve)
-  external
-  view
-  returns (
-      uint256 liquidityRate
-  );
-  function getReserveInterestRateStrategyAddress(address _reserve) external view returns (address);
-  function getReserveTotalBorrows(address _reserve) external view returns (uint256);
-  function getReserveTotalBorrowsStable(address _reserve) external view returns (uint256);
-  function getReserveTotalBorrowsVariable(address _reserve) external view returns (uint256);
-  function getReserveCurrentAverageStableBorrowRate(address _reserve)
-     external
-     view
-     returns (uint256);
-  function getReserveAvailableLiquidity(address _reserve) external view returns (uint256);
-}
+// interface IDefaultReserveInterestRateStrategy {
 
-interface IReserveInterestRateStrategy {
+//     function calculateInterestRates(
+//         address _reserve,
+//         uint256 _availableLiquidity,
+//         uint256 _totalStableDebt,
+//         uint256 _totalVariableDebt,
+//         uint256 _averageStableBorrowRate,
+//         uint256 _reserveFactor)
+//     external
+//     view
+//     returns (uint256 liquidityRate, uint256 stableBorrowRate, uint256 variableBorrowRate);
+// }
 
-    function getBaseVariableBorrowRate() external view returns (uint256);
-    function calculateInterestRates(
-        address _reserve,
-        uint256 _utilizationRate,
-        uint256 _totalBorrowsStable,
-        uint256 _totalBorrowsVariable,
-        uint256 _averageStableBorrowRate)
+interface IProtocalProvider {
+    function getReserveData(
+        address asset
+    )
     external
     view
-    returns (uint256 liquidityRate, uint256 stableBorrowRate, uint256 variableBorrowRate);
+    returns (uint256 availableLiquidity, uint256 totalStableDebt, uint256 totalVariableDebt, uint256 liquidityRate, uint256 variableBorrowRate, uint256 variableBorrowRate, uint256 stableBorrowRate, uint256 averageStableBorrowRate, uint256 liquidityIndex, uint256 variableBorrowIndex, uint40 lastUpdateTimestamp);
 }
 
 contract Structs {
@@ -263,13 +254,15 @@ contract APRWithPoolOracle is Ownable, Structs {
   uint256 DECIMAL = 10 ** 18;
 
   address public AAVE;
+  address public protocalProvider;
+//   address public DefaultReserveInterestRateStrategy;
 
   uint256 public liquidationRatio;
 
   constructor() public {
-    //mumbai
-    AAVE = address(0x178113104fEcbcD7fF8669a0150721e231F0FD4B);
-    // AAVE = address(0xd05e3E715d945B59290df0ae8eF85c1BdB684744);
+    AAVE = address(0xd05e3E715d945B59290df0ae8eF85c1BdB684744);
+    protocalProvider = address(0x7551b5D2763519d4e37e8B81929D336De671d46d);
+    // DefaultReserveInterestRateStrategy = address(0x5C2B160B9248249ccC0492D566903FB2F8682E39);
     liquidationRatio = 50000000000000000;
   }
 
@@ -284,15 +277,28 @@ contract APRWithPoolOracle is Ownable, Structs {
   }
 
   function getAaveAPRAdjusted(address token, uint256 _supply) public view returns (uint256) {
-    LendingPoolCore core = LendingPoolCore(LendingPoolAddressesProvider(AAVE).getLendingPoolCore());
-    IReserveInterestRateStrategy apr = IReserveInterestRateStrategy(core.getReserveInterestRateStrategyAddress(token));
-    (uint256 newLiquidityRate,,) = apr.calculateInterestRates(
-      token,
-      core.getReserveAvailableLiquidity(token).add(_supply),
-      core.getReserveTotalBorrowsStable(token),
-      core.getReserveTotalBorrowsVariable(token),
-      core.getReserveCurrentAverageStableBorrowRate(token)
-    );
+    // LendingPoolCore core = LendingPoolCore(LendingPoolAddressesProvider(AAVE).getLendingPoolCollateralManager()); //getLendingPoolCore
+    // IReserveInterestRateStrategy apr = IReserveInterestRateStrategy(core.getReserveInterestRateStrategyAddress(token));
+    // (uint256 newLiquidityRate,,) = apr.calculateInterestRates(
+    //   token,
+    //   core.getReserveAvailableLiquidity(token).add(_supply),
+    //   core.getReserveTotalBorrowsStable(token),
+    //   core.getReserveTotalBorrowsVariable(token),
+    //   core.getReserveCurrentAverageStableBorrowRate(token)
+    // );
+    IProtocalProvider provider = IProtocalProvider(protocalProvider);
+    (,,,uint256 newLiquidityRate,,,,,,,) = provider.getReserveData(token);
+    // IDefaultReserveInterestRateStrategy apr = IDefaultReserveInterestRateStrategy(DefaultReserveInterestRateStrategy);
+    // (uint256 newLiquidityRate,,) = apr.calculateInterestRates(
+    //     token,
+    //     provider.getReserveData(token).availableLiquidity,
+    //     provider.getReserveData(token).totalStableDebt,
+    //     provider.getReserveData(token).totalVariableDebt,
+    //     provider.getReserveData(token).availableLiquidity,
+    //     provider.getReserveData(token).availableLiquidity,
+    //     provider.getReserveData(token).availableLiquidity
+    // );
     return newLiquidityRate.div(1e9);
   }
 }
+// interestRateStrategyAddress

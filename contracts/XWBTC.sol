@@ -359,28 +359,31 @@ contract xWBTC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
   address public aave;
   address public aaveToken;
   address public apr;
+  address public fortube;
 
   enum Lender {
       NONE,
       AAVE,
-      FULCRUM
+      FULCRUM,
+      FORTUBE
   }
 
   Lender public provider = Lender.NONE;
 
   constructor () public ERC20Detailed("xend WBTC", "xWTBC", 8) {
     //mumbai network
-    token = address(0xcf6bc4ae4a99c539353e4bf4c80fff296413ceea);
-    apr = address(0xCC7986A6a8A0774070868Cf0D4aCe451DbEC76EF);
-    aave = address(0x178113104fEcbcD7fF8669a0150721e231F0FD4B);
-    fulcrum = address(0x178113104fEcbcD7fF8669a0150721e231F0FD4B);
-    aaveToken = address(0xc9276ECa6798A14f64eC33a526b547DAd50bDa2F);
+    // token = address(0xcf6bc4ae4a99c539353e4bf4c80fff296413ceea);
+    // apr = address(0xCC7986A6a8A0774070868Cf0D4aCe451DbEC76EF);
+    // aave = address(0x178113104fEcbcD7fF8669a0150721e231F0FD4B);
+    // fulcrum = address(0x178113104fEcbcD7fF8669a0150721e231F0FD4B);
+    // aaveToken = address(0xc9276ECa6798A14f64eC33a526b547DAd50bDa2F);
 
-    // token = address(0x1bfd67037b42cf73acf2047067bd4f2c47d9bfd6);
-    // apr = address(0xdD6d648C991f7d47454354f4Ef326b04025a48A8);
-    // aave = address(0xd05e3E715d945B59290df0ae8eF85c1BdB684744);
-    // fulcrum = address(0x2e1a74a16e3a9f8e3d825902ab9fb87c606cb13f);
-    // aaveToken = address(0x5c2ed810328349100A66B82b78a1791B101C9D61);
+    token = address(0x1bfd67037b42cf73acf2047067bd4f2c47d9bfd6);
+    apr = address(0xdD6d648C991f7d47454354f4Ef326b04025a48A8);
+    aave = address(0xd05e3E715d945B59290df0ae8eF85c1BdB684744);
+    fulcrum = address(0x97ebf27d40d306ad00bb2922e02c58264b295a95);
+    aaveToken = address(0x5c2ed810328349100A66B82b78a1791B101C9D61);
+    // fortube = address(0x5c2ed810328349100A66B82b78a1791B101C9D61);
     approveToken();
   } 
 
@@ -446,19 +449,24 @@ contract xWBTC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
   }
 
   function recommend() public view returns (Lender) {
-    (, uint256 fapr,uint256 aapr) = IIEarnManager(apr).recommend(token);
+    (, uint256 fapr,uint256 aapr, uint ftapr) = IIEarnManager(apr).recommend(token);
     uint256 max = 0;
     if (fapr > max) {
       max = fapr;
     }
     if (aapr > max) {
       max = aapr;
-    }    
+    }
+    if(ftapr > max) {
+      max = ftapr;
+    }
     Lender newProvider = Lender.NONE;
     if (max == aapr) {
       newProvider = Lender.AAVE;
     } else if (max == fapr) {
       newProvider = Lender.FULCRUM;
+    } else if (max == ftapr) {
+      newProvider = Lender.FORTUBE;
     }
     return newProvider;
   }
