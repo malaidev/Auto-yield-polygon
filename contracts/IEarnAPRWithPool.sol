@@ -360,6 +360,7 @@ interface APRWithPoolOracle {
   function getAaveCore() external view returns (address);
   function getAaveAPR(address token) external view returns (uint256);
   function getAaveAPRAdjusted(address token, uint256 _supply) external view returns (uint256);
+  function getFortubeAPRAdjusted(address token, uint256 _supply) external view returns (uint256);
 
 }
 
@@ -381,6 +382,7 @@ contract IEarnAPRWithPool is Ownable {
     mapping(address => address) public fulcrum;
     mapping(address => address) public aave;
     mapping(address => address) public xTokens;
+    mapping(address => address) public fortube;
 
     address public APR;
 
@@ -413,21 +415,28 @@ contract IEarnAPRWithPool is Ownable {
         // addFToken(0xd6df932a45c0f255f85145f286ea0b292b21c90b, 0xf009c28b2d9e13886105714b895f013e2e43ee12); //fAAVE        
         addFToken(0x1bfd67037b42cf73acf2047067bd4f2c47d9bfd6, 0x2e1a74a16e3a9f8e3d825902ab9fb87c606cb13f); //fWBTC
 
+        addFTToken(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270, 0x33d6D5F813BF78163901b1e72Fb1fEB90E72fD72); //ftMatic
+        addFTToken(0xc2132d05d31c914a87c6611c10748aeb04b58e8f, 0xE2272A850188B43E94eD6DF5b75f1a2FDcd5aC26); //ftUSDT
+        addFTToken(0x2791bca1f2de4661ed88a30c99a7a9449aa84174, 0xf330b39f74e7f71ab9604A5307690872b8125aC8); //ftUSDC
+        // addFTToken(0xf330b39f74e7f71ab9604A5307690872b8125aC8, ); //ftAAVE
+        addFTToken(0x1bfd67037b42cf73acf2047067bd4f2c47d9bfd6, 0x57160962Dc107C8FBC2A619aCA43F79Fd03E7556); //ftWBTC
     }
 
     // Wrapper for legacy v1 token support
     function recommend(address _token) public view returns (
       string memory choice,
       uint256 fapr,
-      uint256 aapr
+      uint256 aapr,
+      uint256 ftapr
     ) {
-      (fapr,aapr) = getAPROptionsInc(_token);
-      return (choice, fapr, aapr);
+      (fapr,aapr,ftapr) = getAPROptionsInc(_token);
+      return (choice, fapr, aapr, ftapr);
     }
 
     function getAPROptionsInc(address _token) public view returns (
       uint256 _fulcrum,
-      uint256 _aave
+      uint256 _aave,
+      uint256 _fortube
     ) {
       address xToken = xTokens[_token];
       uint256 _supply = 0;
@@ -439,7 +448,8 @@ contract IEarnAPRWithPool is Ownable {
 
     function getAPROptionsAdjusted(address _token, uint256 _supply) public view returns (
       uint256 _fulcrum,
-      uint256 _aave
+      uint256 _aave,
+      uint256 _fortube
     ) {
 
       address addr;
@@ -451,10 +461,15 @@ contract IEarnAPRWithPool is Ownable {
       if (addr != address(0)) {
         _aave = APRWithPoolOracle(APR).getAaveAPRAdjusted(addr, _supply);
       }
+      addr = fortube[_token];
+      if (addr != address(0)) {
+        _fortube = APRWithPoolOracle(APR).getFortubeAPRAdjusted(addr, _supply);
+      }
 
       return (
         _fulcrum,
-        _aave
+        _aave,
+        _fortube
       );
     }
 
@@ -477,5 +492,12 @@ contract IEarnAPRWithPool is Ownable {
       address xToken
     ) public onlyOwner {
         xTokens[token] = xToken;
+    }
+
+    function addFTToken(
+      address token,
+      address ftToken
+    ) public onlyOwner {
+        ftTokens[token] = ftToken;
     }
 }
