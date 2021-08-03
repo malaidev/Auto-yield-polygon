@@ -264,6 +264,12 @@ interface IIEarnManager {
     );
 }
 
+interface Fortube {
+    function mint(address receiver, uint256 amount) external payable returns (uint256 mintAmount);
+    function withdraw(address receiver, uint256 withdrawTokensIn, uint256 withdrawAmountIn) external view returns(uint256 loanAmountPaid);
+    function balanceOf(address _owner) external view returns (uint256 balance);
+}
+
 contract Structs {
     struct Val {
         uint256 value;
@@ -327,11 +333,13 @@ contract xUSDC is ERC20, ERC20Detailed, ReentrancyGuard, Structs {
   address public aave;
   address public aaveToken;
   address public apr;
+  address public fortubeToken;
 
   enum Lender {
       NONE,
       AAVE,
-      FULCRUM
+      FULCRUM,
+      FORTUBE
   }
 
   Lender public provider = Lender.NONE;
@@ -349,6 +357,7 @@ contract xUSDC is ERC20, ERC20Detailed, ReentrancyGuard, Structs {
     aave = address(0xd05e3E715d945B59290df0ae8eF85c1BdB684744);
     fulcrum = address(0x2e1a74a16e3a9f8e3d825902ab9fb87c606cb13f);
     aaveToken = address(0x1a13F4Ca1d028320A707D99520AbFefca3998b7F);
+    fortubeToken = address(0xf330b39f74e7f71ab9604A5307690872b8125aC8);
     approveToken();
   }
 
@@ -434,13 +443,18 @@ contract xUSDC is ERC20, ERC20Detailed, ReentrancyGuard, Structs {
   function getAave() public view returns (address) {
     return LendingPoolAddressesProvider(aave).getLendingPool();
   }
-  function getAaveCore() public view returns (address) {
-    return LendingPoolAddressesProvider(aave).getLendingPoolCollateralManager();
-  }
 
   function approveToken() public {
-      IERC20(token).safeApprove(getAaveCore(), uint(-1));
+      IERC20(token).safeApprove(getAave(), uint(-1));
       IERC20(token).safeApprove(fulcrum, uint(-1));
+      IERC20(token).safeApprove(fortube, uint(-1));
+  }
+  function balanceFortubeInToken() public view returns (uint256) {
+    uint256 b = balanceFortube();
+    if (b > 0) {
+      b = Fortube(fortube).balanceOf(address(this));
+    }
+    return b;
   }
 
   function balanceFulcrumInToken() public view returns (uint256) {
@@ -456,6 +470,9 @@ contract xUSDC is ERC20, ERC20Detailed, ReentrancyGuard, Structs {
   function balanceAave() public view returns (uint256) {
     return IERC20(aaveToken).balanceOf(address(this));
   }
+  function balanceFortube() public view returns (uint256) {
+    return IERC20(fortubeToken).balanceOf(address(this));
+  }
 
   function _balance() internal view returns (uint256) {
     return IERC20(token).balanceOf(address(this));
@@ -468,11 +485,23 @@ contract xUSDC is ERC20, ERC20Detailed, ReentrancyGuard, Structs {
     }
     return b;
   }
+  
+  function _balanceFortubeInToken() internal view returns (uint256) {
+    uint256 b = balanceFortube();
+    if (b > 0) {
+      b = Fortube(fortube).assetBalanceOf(address(this));
+    }
+    return b;
+  }
+
   function _balanceFulcrum() internal view returns (uint256) {
     return IERC20(fulcrum).balanceOf(address(this));
   }
   function _balanceAave() internal view returns (uint256) {
     return IERC20(aaveToken).balanceOf(address(this));
+  }
+  function _balanceFortube() internal view returns (uint256) {
+    return IERC20(fortubeToken).balanceOf(address(this));
   }
 
   function _withdrawAll() internal {
@@ -483,6 +512,10 @@ contract xUSDC is ERC20, ERC20Detailed, ReentrancyGuard, Structs {
     amount = _balanceAave();
     if (amount > 0) {
       _withdrawAave(amount);
+    }
+    amount = _balanceFortube();
+    if (amount > 0) {
+      _withdrawFortube(amount);
     }
   }
 
@@ -495,6 +528,13 @@ contract xUSDC is ERC20, ERC20Detailed, ReentrancyGuard, Structs {
     uint256 amount = (b.mul(_amount)).div(bT).add(1);
     _withdrawFulcrum(amount);
   }
+  function _withdrawSomeFortube(uint256 _amount) internal {
+    uint256 b = balanceFortube();
+    uint256 bT = balanceFortubeInToken();
+    require(bT >= _amount, "insufficient funds");
+    uint256 amount = (b.mul(_amount)).div(bT).add(1);
+    _withdrawFortube(amount);
+  }
 
   function _withdrawSome(uint256 _amount) internal {
     if (provider == Lender.AAVE) {
@@ -503,6 +543,9 @@ contract xUSDC is ERC20, ERC20Detailed, ReentrancyGuard, Structs {
     }
     if (provider == Lender.FULCRUM) {
       _withdrawSomeFulcrum(_amount);
+    }
+    if (provider == Lender.FORTUBE {
+      _withdrawSomeFortube(_amount);
     }
   }
 
@@ -518,6 +561,8 @@ contract xUSDC is ERC20, ERC20Detailed, ReentrancyGuard, Structs {
         supplyFulcrum(balance());
       } else if (newProvider == Lender.AAVE) {
         supplyAave(balance());
+      } else if (newProvider == Lender.FORTUBE) {
+        supplyFortube(balance());
       }
     }
 
@@ -531,6 +576,8 @@ contract xUSDC is ERC20, ERC20Detailed, ReentrancyGuard, Structs {
         supplyFulcrum(_balance());
       } else if (newProvider == Lender.AAVE) {
         supplyAave(_balance());
+      } else if (newProvider == Lender.FORTUBE) {
+        supplyFortube(_balance());
       }
     }
     provider = newProvider;
@@ -542,11 +589,17 @@ contract xUSDC is ERC20, ERC20Detailed, ReentrancyGuard, Structs {
   function supplyFulcrum(uint amount) public {
       require(Fulcrum(fulcrum).mint(address(this), amount) > 0, "FULCRUM: supply failed");
   }
+  function supplyFortube(uint amount) public {
+      require(Fortube(fortubeToken).mint(address(this), amount) > 0, "FORTUBE: supply failed");
+  }
   function _withdrawAave(uint amount) internal {
       AToken(aaveToken).redeem(amount);
   }
   function _withdrawFulcrum(uint amount) internal {
       require(Fulcrum(fulcrum).burn(address(this), amount) > 0, "FULCRUM: withdraw failed");
+  }
+  function _withdrawFortube(uint amount) internal {
+      require(Fortube(fortubeToken).withdraw(address(this), amount, 0) > 0, "FORTUBE: withdraw failed");
   }
 
   function invest(uint256 _amount)
@@ -575,6 +628,7 @@ contract xUSDC is ERC20, ERC20Detailed, ReentrancyGuard, Structs {
   function _calcPoolValueInToken() internal view returns (uint) {
     return _balanceFulcrumInToken()
       .add(_balanceAave())
+      .add(_balanceFortube())
       .add(_balance());
   }
 
@@ -582,6 +636,7 @@ contract xUSDC is ERC20, ERC20Detailed, ReentrancyGuard, Structs {
 
     return balanceFulcrumInToken()
       .add(balanceAave())
+      .add(balanceFortube())
       .add(balance());
   }
 
