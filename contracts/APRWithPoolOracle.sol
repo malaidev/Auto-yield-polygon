@@ -216,19 +216,9 @@ interface LendingPoolAddressesProvider {
     function getLendingPoolCollateralManager() external view returns (address);
 }
 
-// interface IDefaultReserveInterestRateStrategy {
-
-//     function calculateInterestRates(
-//         address _reserve,
-//         uint256 _availableLiquidity,
-//         uint256 _totalStableDebt,
-//         uint256 _totalVariableDebt,
-//         uint256 _averageStableBorrowRate,
-//         uint256 _reserveFactor)
-//     external
-//     view
-//     returns (uint256 liquidityRate, uint256 stableBorrowRate, uint256 variableBorrowRate);
-// }
+interface IFortube {
+    uint256 APY; 
+}
 
 interface IProtocalProvider {
     function getReserveData(
@@ -277,28 +267,13 @@ contract APRWithPoolOracle is Ownable, Structs {
   }
 
   function getAaveAPRAdjusted(address token, uint256 _supply) public view returns (uint256) {
-    // LendingPoolCore core = LendingPoolCore(LendingPoolAddressesProvider(AAVE).getLendingPoolCollateralManager()); //getLendingPoolCore
-    // IReserveInterestRateStrategy apr = IReserveInterestRateStrategy(core.getReserveInterestRateStrategyAddress(token));
-    // (uint256 newLiquidityRate,,) = apr.calculateInterestRates(
-    //   token,
-    //   core.getReserveAvailableLiquidity(token).add(_supply),
-    //   core.getReserveTotalBorrowsStable(token),
-    //   core.getReserveTotalBorrowsVariable(token),
-    //   core.getReserveCurrentAverageStableBorrowRate(token)
-    // );
     IProtocalProvider provider = IProtocalProvider(protocalProvider);
     (,,,uint256 newLiquidityRate,,,,,,,) = provider.getReserveData(token);
-    // IDefaultReserveInterestRateStrategy apr = IDefaultReserveInterestRateStrategy(DefaultReserveInterestRateStrategy);
-    // (uint256 newLiquidityRate,,) = apr.calculateInterestRates(
-    //     token,
-    //     provider.getReserveData(token).availableLiquidity,
-    //     provider.getReserveData(token).totalStableDebt,
-    //     provider.getReserveData(token).totalVariableDebt,
-    //     provider.getReserveData(token).availableLiquidity,
-    //     provider.getReserveData(token).availableLiquidity,
-    //     provider.getReserveData(token).availableLiquidity
-    // );
-    return newLiquidityRate.div(1e9);
+    return newLiquidityRate.div(1e27);
   }
 }
 // interestRateStrategyAddress
+function getFortubeAPRAdjusted(address token, uint256 _supply) public view returns (uint256) {
+    IFortube fortube = IFortube(token);
+    return fortube.APY.div(1e18);
+}
