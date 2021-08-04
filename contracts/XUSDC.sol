@@ -260,7 +260,8 @@ interface IIEarnManager {
     function recommend(address _token) external view returns (
       string memory choice,
       uint256 fapr,
-      uint256 aapr
+      uint256 aapr,
+      uint256 ftapr
     );
 }
 
@@ -352,10 +353,10 @@ contract xUSDC is ERC20, ERC20Detailed, ReentrancyGuard, Structs {
     // fulcrum = address(0x2e1a74a16e3a9f8e3d825902ab9fb87c606cb13f);
     // aaveToken = address(0x2271e3Fef9e15046d09E1d78a8FF038c691E9Cf9);
 
-    token = address(0x2791bca1f2de4661ed88a30c99a7a9449aa84174);
+    token = address(0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174);
     apr = address(0xdD6d648C991f7d47454354f4Ef326b04025a48A8);
     aave = address(0xd05e3E715d945B59290df0ae8eF85c1BdB684744);
-    fulcrum = address(0x2e1a74a16e3a9f8e3d825902ab9fb87c606cb13f);
+    fulcrum = address(0x2E1A74a16e3a9F8e3d825902Ab9fb87c606cB13f);
     aaveToken = address(0x1a13F4Ca1d028320A707D99520AbFefca3998b7F);
     fortubeToken = address(0xf330b39f74e7f71ab9604A5307690872b8125aC8);
     approveToken();
@@ -419,7 +420,7 @@ contract xUSDC is ERC20, ERC20Detailed, ReentrancyGuard, Structs {
   }
 
   function recommend() public view returns (Lender) {
-    (, uint256 fapr,uint256 aapr) = IIEarnManager(apr).recommend(token);
+    (, uint256 fapr,uint256 aapr, uint256 ftapr) = IIEarnManager(apr).recommend(token);
     uint256 max = 0;
     if (fapr > max) {
       max = fapr;
@@ -427,11 +428,17 @@ contract xUSDC is ERC20, ERC20Detailed, ReentrancyGuard, Structs {
     if (aapr > max) {
       max = aapr;
     }
+    if (ftapr > max) {
+      max = ftapr;
+    }
     Lender newProvider = Lender.NONE;
     if (max == aapr) {
       newProvider = Lender.AAVE;
     } else if (max == fapr) {
       newProvider = Lender.FULCRUM;
+    }
+    else if (max == ftapr) {
+      newProvider = Lender.FORTUBE;
     }
     return newProvider;
   }
@@ -447,12 +454,12 @@ contract xUSDC is ERC20, ERC20Detailed, ReentrancyGuard, Structs {
   function approveToken() public {
       IERC20(token).safeApprove(getAave(), uint(-1));
       IERC20(token).safeApprove(fulcrum, uint(-1));
-      IERC20(token).safeApprove(fortube, uint(-1));
+      IERC20(token).safeApprove(fortubeToken, uint(-1));
   }
   function balanceFortubeInToken() public view returns (uint256) {
     uint256 b = balanceFortube();
     if (b > 0) {
-      b = Fortube(fortube).balanceOf(address(this));
+      b = Fortube(fortubeToken).balanceOf(address(this));
     }
     return b;
   }
@@ -489,7 +496,7 @@ contract xUSDC is ERC20, ERC20Detailed, ReentrancyGuard, Structs {
   function _balanceFortubeInToken() internal view returns (uint256) {
     uint256 b = balanceFortube();
     if (b > 0) {
-      b = Fortube(fortube).assetBalanceOf(address(this));
+      b = Fortube(fortubeToken).balanceOf(address(this));
     }
     return b;
   }
@@ -544,7 +551,7 @@ contract xUSDC is ERC20, ERC20Detailed, ReentrancyGuard, Structs {
     if (provider == Lender.FULCRUM) {
       _withdrawSomeFulcrum(_amount);
     }
-    if (provider == Lender.FORTUBE {
+    if (provider == Lender.FORTUBE) {
       _withdrawSomeFortube(_amount);
     }
   }
