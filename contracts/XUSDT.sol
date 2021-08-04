@@ -292,7 +292,8 @@ interface IIEarnManager {
     function recommend(address _token) external view returns (
       string memory choice,
       uint256 fapr,
-      uint256 aapr
+      uint256 aapr,
+      uint256 ftapr
     );
 }
 
@@ -385,10 +386,10 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
     // aaveToken = address(0xF8744C0bD8C7adeA522d6DDE2298b17284A79D1b);
 
     // matic network
-    token = address(0xc2132d05d31c914a87c6611c10748aeb04b58e8f);
+    token = address(0xc2132D05D31c914a87C6611C10748AEb04B58e8F);
     apr = address(0xdD6d648C991f7d47454354f4Ef326b04025a48A8);
     aave = address(0xd05e3E715d945B59290df0ae8eF85c1BdB684744);
-    fulcrum = address(0x18d755c981a550b0b8919f1de2cdf882f489c155);
+    fulcrum = address(0x18D755c981A550B0b8919F1De2CDF882f489c155);
     aaveToken = address(0x60D55F02A771d515e077c9C2403a1ef324885CeC);
     fortubeToken = address(0xE2272A850188B43E94eD6DF5b75f1a2FDcd5aC26);
     approveToken();
@@ -458,7 +459,7 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
   }
 
   function recommend() public view returns (Lender) {
-    (, uint256 fapr, uint256 aapr) = IIEarnManager(apr).recommend(token);
+    (, uint256 fapr, uint256 aapr, uint256 ftapr) = IIEarnManager(apr).recommend(token);
     uint256 max = 0;
     if (fapr > max) {
       max = fapr;
@@ -466,12 +467,18 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
     if (aapr > max) {
       max = aapr;
     }
+    if (ftapr > max) {
+      max = ftapr;
+    }
     
     Lender newProvider = Lender.NONE;
     if (max == aapr) {
       newProvider = Lender.AAVE;
     } else if (max == fapr) {
       newProvider = Lender.FULCRUM;
+    }
+     else if (max == ftapr) {
+      newProvider = Lender.FORTUBE;
     }
     return newProvider;
   }
@@ -483,13 +490,13 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
   function approveToken() public {
       IERC20(token).safeApprove(getAave(), uint(-1));
       IERC20(token).safeApprove(fulcrum, uint(-1));
-      IERC20(token).safeApprove(fortube, uint(-1));
+      IERC20(token).safeApprove(fortubeToken, uint(-1));
   }
 
   function balanceFortubeInToken() public view returns (uint256) {
     uint256 b = balanceFortube();
     if (b > 0) {
-      b = Fortube(fortube).balanceOf(address(this));
+      b = Fortube(fortubeToken).balanceOf(address(this));
     }
     return b;
   }
@@ -530,7 +537,7 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
   function _balanceFortubeInToken() internal view returns (uint256) {
     uint256 b = balanceFortube();
     if (b > 0) {
-      b = Fortube(fortube).assetBalanceOf(address(this));
+      b = Fortube(fortubeToken).balanceOf(address(this));
     }
     return b;
   }
@@ -587,7 +594,7 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
     if (provider == Lender.FULCRUM) {
       _withdrawSomeFulcrum(_amount);
     }
-    if (provider == Lender.FORTUBE {
+    if (provider == Lender.FORTUBE) {
       _withdrawSomeFortube(_amount);
     }
   }

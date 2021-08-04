@@ -292,7 +292,8 @@ interface IIEarnManager {
     function recommend(address _token) external view returns (
       string memory choice,
       uint256 fapr,
-      uint256 aapr
+      uint256 aapr,
+      uint256 ftapr
     );
 }
 
@@ -384,10 +385,10 @@ contract xAAVE is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
     // fulcrum = address(0xf009c28b2d9e13886105714b895f013e2e43ee12);
     // aaveToken = address(0x7ec62b6fC19174255335C8f4346E0C2fcf870a6B);
     
-    token = address(0xd6df932a45c0f255f85145f286ea0b292b21c90b);
+    token = address(0xD6DF932A45C0f255f85145f286eA0b292B21C90B);
     apr = address(0xdD6d648C991f7d47454354f4Ef326b04025a48A8);
     aave = address(0xd05e3E715d945B59290df0ae8eF85c1BdB684744);
-    fulcrum = address(0xf009c28b2d9e13886105714b895f013e2e43ee12);
+    fulcrum = address(0xf009c28b2D9E13886105714B895f013E2e43EE12);
     aaveToken = address(0x1d2a0E5EC8E5bBDCA5CB219e649B565d8e5c3360);
     fortubeToken = address(0);
     approveToken();
@@ -455,19 +456,24 @@ contract xAAVE is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
   }
 
   function recommend() public view returns (Lender) {
-    (, uint256 fapr,uint256 aapr) = IIEarnManager(apr).recommend(token);
+    (, uint256 fapr,uint256 aapr, uint256 ftapr) = IIEarnManager(apr).recommend(token);
     uint256 max = 0;
     if (fapr > max) {
       max = fapr;
     }
     if (aapr > max) {
       max = aapr;
+    } 
+    if (ftapr > max) {
+      max = ftapr;
     }    
     Lender newProvider = Lender.NONE;
     if (max == aapr) {
       newProvider = Lender.AAVE;
     } else if (max == fapr) {
       newProvider = Lender.FULCRUM;
+    } else if (max == ftapr) {
+      newProvider = Lender.FORTUBE;
     }
     return newProvider;
   }
@@ -486,13 +492,13 @@ contract xAAVE is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
   function approveToken() public {
       IERC20(token).safeApprove(getAave(), uint(-1));
       IERC20(token).safeApprove(fulcrum, uint(-1));
-      IERC20(token).safeApprove(fortube, uint(-1));
+      IERC20(token).safeApprove(fortubeToken, uint(-1));
   }
 
   function balanceFortubeInToken() public view returns (uint256) {
     uint256 b = balanceFortube();
     if (b > 0) {
-      b = Fortube(fortube).balanceOf(address(this));
+      b = Fortube(fortubeToken).balanceOf(address(this));
     }
     return b;
   }
@@ -529,7 +535,7 @@ contract xAAVE is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
   function _balanceFortubeInToken() internal view returns (uint256) {
     uint256 b = balanceFortube();
     if (b > 0) {
-      b = Fortube(fortube).assetBalanceOf(address(this));
+      b = Fortube(fortubeToken).balanceOf(address(this));
     }
     return b;
   }
@@ -585,7 +591,7 @@ contract xAAVE is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
     if (provider == Lender.FULCRUM) {
       _withdrawSomeFulcrum(_amount);
     }
-    if (provider == Lender.FORTUBE {
+    if (provider == Lender.FORTUBE) {
       _withdrawSomeFortube(_amount);
     }
   }

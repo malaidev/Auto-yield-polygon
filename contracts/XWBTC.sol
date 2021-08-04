@@ -292,7 +292,8 @@ interface IIEarnManager {
     function recommend(address _token) external view returns (
       string memory choice,
       uint256 fapr,
-      uint256 aapr
+      uint256 aapr,
+      uint256 ftapr
     );
 }
 interface Fortube {
@@ -383,10 +384,10 @@ contract xWBTC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
     // fulcrum = address(0x178113104fEcbcD7fF8669a0150721e231F0FD4B);
     // aaveToken = address(0xc9276ECa6798A14f64eC33a526b547DAd50bDa2F);
 
-    token = address(0x1bfd67037b42cf73acf2047067bd4f2c47d9bfd6);
+    token = address(0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6);
     apr = address(0xdD6d648C991f7d47454354f4Ef326b04025a48A8);
     aave = address(0xd05e3E715d945B59290df0ae8eF85c1BdB684744);
-    fulcrum = address(0x97ebf27d40d306ad00bb2922e02c58264b295a95);
+    fulcrum = address(0x97eBF27d40D306aD00bb2922E02c58264b295a95);
     aaveToken = address(0x5c2ed810328349100A66B82b78a1791B101C9D61);
     fortubeToken = address(0x57160962Dc107C8FBC2A619aCA43F79Fd03E7556);
     approveToken();
@@ -487,12 +488,12 @@ contract xWBTC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
   function approveToken() public {
       IERC20(token).safeApprove(getAave(), uint(-1));
       IERC20(token).safeApprove(fulcrum, uint(-1));
-      IERC20(token).safeApprove(fortube, uint(-1));
+      IERC20(token).safeApprove(fortubeToken, uint(-1));
   }
   function balanceFortubeInToken() public view returns (uint256) {
     uint256 b = balanceFortube();
     if (b > 0) {
-      b = Fortube(fortube).balanceOf(address(this));
+      b = Fortube(fortubeToken).balanceOf(address(this));
     }
     return b;
   }
@@ -529,7 +530,7 @@ contract xWBTC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
   function _balanceFortubeInToken() internal view returns (uint256) {
     uint256 b = balanceFortube();
     if (b > 0) {
-      b = Fortube(fortube).assetBalanceOf(address(this));
+      b = Fortube(fortubeToken).balanceOf(address(this));
     }
     return b;
   }
@@ -584,7 +585,7 @@ contract xWBTC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
     if (provider == Lender.FULCRUM) {
       _withdrawSomeFulcrum(_amount);
     }
-    if (provider == Lender.FORTUBE {
+    if (provider == Lender.FORTUBE) {
       _withdrawSomeFortube(_amount);
     }
   }
