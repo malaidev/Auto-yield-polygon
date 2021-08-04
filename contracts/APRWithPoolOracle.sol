@@ -217,7 +217,7 @@ interface LendingPoolAddressesProvider {
 }
 
 interface IFortube {
-    uint256 APY; 
+    function APY() external view returns (uint256);
 }
 
 interface IProtocalProvider {
@@ -226,7 +226,7 @@ interface IProtocalProvider {
     )
     external
     view
-    returns (uint256 availableLiquidity, uint256 totalStableDebt, uint256 totalVariableDebt, uint256 liquidityRate, uint256 variableBorrowRate, uint256 variableBorrowRate, uint256 stableBorrowRate, uint256 averageStableBorrowRate, uint256 liquidityIndex, uint256 variableBorrowIndex, uint40 lastUpdateTimestamp);
+    returns (uint256 availableLiquidity, uint256 totalStableDebt, uint256 totalVariableDebt, uint256 liquidityRate, uint256 variableBorrowRate, uint256 stableBorrowRate, uint256 averageStableBorrowRate, uint256 liquidityIndex, uint256 variableBorrowIndex, uint40 lastUpdateTimestamp);
 }
 
 contract Structs {
@@ -266,14 +266,14 @@ contract APRWithPoolOracle is Ownable, Structs {
     return Fulcrum(token).nextSupplyInterestRate(_supply).div(100);
   }
 
-  function getAaveAPRAdjusted(address token, uint256 _supply) public view returns (uint256) {
+  function getAaveAPRAdjusted(address token) public view returns (uint256) {
     IProtocalProvider provider = IProtocalProvider(protocalProvider);
-    (,,,uint256 newLiquidityRate,,,,,,,) = provider.getReserveData(token);
+    (,,,uint256 newLiquidityRate,,,,,,) = provider.getReserveData(token);
     return newLiquidityRate.div(1e27);
+  }
+  function getFortubeAPRAdjusted(address token) public view returns (uint256) {
+    IFortube fortube = IFortube(token);
+    return fortube.APY().div(1e18);
   }
 }
 // interestRateStrategyAddress
-function getFortubeAPRAdjusted(address token, uint256 _supply) public view returns (uint256) {
-    IFortube fortube = IFortube(token);
-    return fortube.APY.div(1e18);
-}
