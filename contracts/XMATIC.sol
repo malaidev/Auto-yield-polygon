@@ -292,7 +292,8 @@ interface IIEarnManager {
     function recommend(address _token) external view returns (
       string memory choice,
       uint256 fapr,
-      uint256 aapr
+      uint256 aapr,
+      uint256 ftapr
     );
 }
 interface Fortube {
@@ -386,7 +387,7 @@ contract xMATIC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
     token = address(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
     apr = address(0xdD6d648C991f7d47454354f4Ef326b04025a48A8);
     aave = address(0xd05e3E715d945B59290df0ae8eF85c1BdB684744);
-    fulcrum = address(0x949cc03e43c24a954baa963a00bfc5ab146c6ce7);
+    fulcrum = address(0x949cc03E43C24A954BAa963A00bfC5ab146c6CE7);
     fortubeToken = address(0x33d6D5F813BF78163901b1e72Fb1fEB90E72fD72);
     aaveToken = address(0x8dF3aad3a84da6b69A4DA8aeC3eA40d9091B2Ac4);
     approveToken();
@@ -485,9 +486,9 @@ contract xMATIC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
   }
 
   function approveToken() public {
-      IERC20(token).safeApprove(getAaveCore(), uint(-1));
+      IERC20(token).safeApprove(getAave(), uint(-1));
       IERC20(token).safeApprove(fulcrum, uint(-1));
-      IERC20(token).safeApprove(fortube, uint(-1));
+      IERC20(token).safeApprove(fortubeToken, uint(-1));
   }
 
   function balanceFulcrumInToken() public view returns (uint256) {
@@ -501,7 +502,7 @@ contract xMATIC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
   function balanceFortubeInToken() public view returns (uint256) {
     uint256 b = balanceFortube();
     if (b > 0) {
-      b = Fortube(fortube).balanceOf(address(this));
+      b = Fortube(fortubeToken).balanceOf(address(this));
     }
     return b;
   }
@@ -530,7 +531,7 @@ contract xMATIC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
   function _balanceFortubeInToken() internal view returns (uint256) {
     uint256 b = balanceFortube();
     if (b > 0) {
-      b = Fortube(fortube).assetBalanceOf(address(this));
+      b = Fortube(fortubeToken).balanceOf(address(this));
     }
     return b;
   }
@@ -586,7 +587,7 @@ contract xMATIC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
     if (provider == Lender.FULCRUM) {
       _withdrawSomeFulcrum(_amount);
     }
-    if (provider == Lender.FORTUBE {
+    if (provider == Lender.FORTUBE) {
       _withdrawSomeFortube(_amount);
     }
   }
