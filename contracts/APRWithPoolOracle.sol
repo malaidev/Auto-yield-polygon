@@ -24,7 +24,7 @@ interface IFortube {
 interface IProtocalProvider {
     function ADDRESSES_PROVIDER() external view returns (address);
     function getReserveData(
-        address asset
+        address token
     )
     external
     view
@@ -65,17 +65,28 @@ contract APRWithPoolOracle is Ownable, Structs {
       liquidationRatio = _new_Ratio;
   }
   function getFulcrumAPRAdjusted(address token, uint256 _supply) public view returns(uint256) {
-    return IFulcrum(token).nextSupplyInterestRate(_supply).div(100);
+    if(token == address(0))
+      return 0;
+    else
+      return IFulcrum(token).nextSupplyInterestRate(_supply).mul(1e7);
   }
 
   function getAaveAPRAdjusted(address token) public view returns (uint256) {
-    IProtocalProvider provider = IProtocalProvider(protocalProvider);
-    (,,,uint256 liquidityRate,,,,,,) = provider.getReserveData(token);
-    return liquidityRate;
+    if(token == address(0))
+      return 0;
+    else{
+      IProtocalProvider provider = IProtocalProvider(protocalProvider);
+      (,,,uint256 liquidityRate,,,,,,) = provider.getReserveData(token);
+      return liquidityRate;
+    }
   }
   function getFortubeAPRAdjusted(address token) public view returns (uint256) {
-    IFortube fortube = IFortube(token);
-    return fortube.APY();
+    if(token == address(0))
+      return 0;
+    else{
+      IFortube fortube = IFortube(token);
+      return fortube.APY().mul(1e9);
+    }
   }
 }
 // interestRateStrategyAddress
