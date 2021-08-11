@@ -76,7 +76,7 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
       require(_amount > 0, "deposit must be greater than 0");
       pool = _calcPoolValueInToken();
 
-      IERC20(token).safeTransferFrom(msg.sender, address(this), _amount);
+      IERC20(token).transferFrom(msg.sender, address(this), _amount);
 
       // Calculate pool shares
       uint256 shares = 0;
@@ -100,7 +100,7 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
       uint256 ibalance = balanceOf(msg.sender);
       require(_shares <= ibalance, "insufficient balance");
 
-      // Could have over value from cTokens
+      // Could have over value from xTokens
       pool = _calcPoolValueInToken();
       // Calc to redeem before updating balances
       uint256 r = (pool.mul(_shares)).div(_totalSupply);
@@ -117,7 +117,7 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
         _withdrawSome(r.sub(b));
       }
 
-      IERC20(token).safeTransfer(msg.sender, r);
+      IERC20(token).transfer(msg.sender, r);
       pool = _calcPoolValueInToken();
   }
 
@@ -126,7 +126,7 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
   }
 
   function recommend() public view returns (Lender) {
-    (, uint256 fapr, uint256 aapr, uint256 ftapr) = IIEarnManager(apr).recommend(token);
+    (, uint256 fapr,uint256 aapr, uint256 ftapr) = IIEarnManager(apr).recommend(token);
     uint256 max = 0;
     if (fapr > max) {
       max = fapr;
@@ -154,9 +154,9 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
   }
 
   function approveToken() public {
-      IERC20(token).safeApprove(getAave(), uint(-1));
-      IERC20(token).safeApprove(fulcrum, uint(-1));
-      IERC20(token).safeApprove(fortubeToken, uint(-1));
+      IERC20(token).approve(getAave(), uint(-1));
+      IERC20(token).approve(fulcrum, uint(-1));
+      IERC20(token).approve(FortubeBank(fortubeBank).controller(),  uint(-1));
   }
 
   function balanceFortubeInToken() public view returns (uint256) {
@@ -185,11 +185,16 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
     return IERC20(aaveToken).balanceOf(address(this));
   }
   function balanceFortube() public view returns (uint256) {
-    return IERC20(fortubeToken).balanceOf(address(this));
+    return FortubeToken(fortubeToken).balanceOf(address(this));
   }
 
   function _balance() internal view returns (uint256) {
-    return IERC20(token).balanceOf(address(this));
+    // return IERC20(token).balanceOf(address(this));
+    uint256 b = balanceFortube();
+    if (b > 0) {
+      b = FortubeToken(fortubeToken).balanceOf(address(this));
+    }
+    return b;
   }
 
   function _balanceFulcrumInToken() internal view returns (uint256) {
@@ -239,7 +244,7 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
     uint256 bT = balanceFulcrumInToken(); // 2000000803224344406
     require(bT >= _amount, "insufficient funds");
     // can have unintentional rounding errors
-    uint256 amount = (b.mul(_amount)).div(bT).add(1);
+    uint256 amount = (b.mul(_amount)).div(bT);
     _withdrawFulcrum(amount);
   }
 
@@ -247,7 +252,7 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
     uint256 b = balanceFortube();
     uint256 bT = balanceFortubeInToken();
     require(bT >= _amount, "insufficient funds");
-    uint256 amount = (b.mul(_amount)).div(bT).add(1);
+    uint256 amount = (b.mul(_amount)).div(bT);
     _withdrawFortube(amount);
   }
 
@@ -310,14 +315,14 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
       FortubeBank(fortubeBank).deposit(token, amount);
   }
   function _withdrawAave(uint amount) internal {
-      AToken(aaveToken).redeem(amount);
+      Aave(getAave()).withdraw(token, amount, address(this));
   }
   function _withdrawFulcrum(uint amount) internal {
       require(Fulcrum(fulcrum).burn(address(this), amount) > 0, "FULCRUM: withdraw failed");
   }
   function _withdrawFortube(uint amount) internal {
       require(amount > 0, "FORTUBE: withdraw failed");
-      FortubeBank(fortubeBank).withdraw(address(this), amount);
+      FortubeBank(fortubeBank).withdraw(token, amount);
   }
 
   function _calcPoolValueInToken() internal view returns (uint) {
