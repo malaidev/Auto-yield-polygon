@@ -14,7 +14,8 @@ import './libraries/ERC20Detailed.sol';
 import './libraries/TokenStructs.sol';
 import './interfaces/Aave.sol';
 import './interfaces/AToken.sol';
-import './interfaces/Fortube.sol';
+import './interfaces/FortubeToken.sol';
+import './interfaces/FortubeBank.sol';
 import './interfaces/Fulcrum.sol';
 import './interfaces/IIEarnManager.sol';
 import './interfaces/LendingPoolAddressesProvider.sol';
@@ -31,6 +32,7 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
   address public aaveToken;
   address public apr;
   address public fortubeToken;
+  address public fortubeBank;
 
   enum Lender {
       NONE,
@@ -41,7 +43,7 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
 
   Lender public provider = Lender.NONE;
 
-  constructor () public ERC20Detailed("xend USDT", "xUSDT", 6) {
+  constructor () public ERC20Detailed("xend USDT", "xUSDT", 18) {
     //mumbai network
     // token = address(0x66ee15e40ef0137484e01082e33b177cea68b948);
     // apr = address(0xCC7986A6a8A0774070868Cf0D4aCe451DbEC76EF);
@@ -56,6 +58,7 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
     fulcrum = address(0x18D755c981A550B0b8919F1De2CDF882f489c155);
     aaveToken = address(0x60D55F02A771d515e077c9C2403a1ef324885CeC);
     fortubeToken = address(0xE2272A850188B43E94eD6DF5b75f1a2FDcd5aC26);
+    fortubeBank = address(0x170371bbcfFf200bFB90333e799B9631A7680Cc5);
     approveToken();
   }
 
@@ -140,8 +143,7 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
       newProvider = Lender.AAVE;
     } else if (max == fapr) {
       newProvider = Lender.FULCRUM;
-    }
-     else if (max == ftapr) {
+    } else if (max == ftapr) {
       newProvider = Lender.FORTUBE;
     }
     return newProvider;
@@ -160,7 +162,7 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
   function balanceFortubeInToken() public view returns (uint256) {
     uint256 b = balanceFortube();
     if (b > 0) {
-      b = Fortube(fortubeToken).balanceOf(address(this));
+      b = FortubeToken(fortubeToken).balanceOf(address(this));
     }
     return b;
   }
@@ -201,7 +203,7 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
   function _balanceFortubeInToken() internal view returns (uint256) {
     uint256 b = balanceFortube();
     if (b > 0) {
-      b = Fortube(fortubeToken).balanceOf(address(this));
+      b = FortubeToken(fortubeToken).balanceOf(address(this));
     }
     return b;
   }
@@ -298,13 +300,14 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
   }
 
   function supplyAave(uint amount) public {
-      Aave(getAave()).deposit(token, amount, 0);
+      Aave(getAave()).deposit(token, amount, address(this), 0);
   }
   function supplyFulcrum(uint amount) public {
       require(Fulcrum(fulcrum).mint(address(this), amount) > 0, "FULCRUM: supply failed");
   }
   function supplyFortube(uint amount) public {
-      require(Fortube(fortubeToken).mint(address(this), amount) > 0, "FORTUBE: supply failed");
+      require(amount > 0, "FORTUBE: supply failed");
+      FortubeBank(fortubeBank).deposit(token, amount);
   }
   function _withdrawAave(uint amount) internal {
       AToken(aaveToken).redeem(amount);
@@ -313,7 +316,8 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
       require(Fulcrum(fulcrum).burn(address(this), amount) > 0, "FULCRUM: withdraw failed");
   }
   function _withdrawFortube(uint amount) internal {
-      require(Fortube(fortubeToken).withdraw(address(this), amount, 0) > 0, "FORTUBE: withdraw failed");
+      require(amount > 0, "FORTUBE: withdraw failed");
+      FortubeBank(fortubeBank).withdraw(address(this), amount);
   }
 
   function _calcPoolValueInToken() internal view returns (uint) {
