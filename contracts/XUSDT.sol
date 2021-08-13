@@ -19,6 +19,7 @@ import './interfaces/FortubeBank.sol';
 import './interfaces/Fulcrum.sol';
 import './interfaces/IIEarnManager.sol';
 import './interfaces/LendingPoolAddressesProvider.sol';
+import './interfaces/ITreasury.sol';
 
 contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
   using SafeERC20 for IERC20;
@@ -33,6 +34,9 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
   address public apr;
   address public fortubeToken;
   address public fortubeBank;
+  address public FEE_ADDRESS;
+
+  mapping (address => uint256) depositedAmount;
 
   enum Lender {
       NONE,
@@ -59,11 +63,16 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
     aaveToken = address(0x60D55F02A771d515e077c9C2403a1ef324885CeC);
     fortubeToken = address(0xE2272A850188B43E94eD6DF5b75f1a2FDcd5aC26);
     fortubeBank = address(0x170371bbcfFf200bFB90333e799B9631A7680Cc5);
+    
+    FEE_ADDRESS = address(0xfa4002f80A366d1829Be3160Ac7f5802dE5EEAf4);
     approveToken();
   }
 
   function set_new_APR(address _new_APR) public onlyOwner {
       apr = _new_APR;
+  }
+  function set_new_fee_address(address _new_fee_address) public onlyOwner {
+      FEE_ADDRESS = _new_fee_address;
   }
   function set_new_FULCRUM(address _new_FULCRUM) public onlyOwner {
       fulcrum = _new_FULCRUM;
@@ -88,6 +97,7 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
       }
       pool = _calcPoolValueInToken();
       _mint(msg.sender, shares);
+      depositedAmount[msg.sender] = depositedAmount[msg.sender].add(_amount);
   }
 
   // No rebalance implementation for lower fees and faster swaps
@@ -117,7 +127,14 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
         _withdrawSome(r.sub(b));
       }
 
-      IERC20(token).transfer(msg.sender, r);
+      uint256 fee = (r.sub(depositedAmount[msg.sender])).mul(20).div(100);
+      // uint256 fee = r.mul(20).div(100);
+      if(fee > 0){
+        IERC20(token).approve(FEE_ADDRESS, fee);
+        ITreasury(FEE_ADDRESS).depositToken(token);
+      }
+      IERC20(token).transfer(msg.sender, r.sub(fee));
+      depositedAmount[msg.sender] = depositedAmount[msg.sender].sub(r);
       pool = _calcPoolValueInToken();
   }
 
@@ -162,7 +179,9 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
   function balanceFortubeInToken() public view returns (uint256) {
     uint256 b = balanceFortube();
     if (b > 0) {
-      b = FortubeToken(fortubeToken).balanceOf(address(this));
+      uint256 exchangeRate = FortubeToken(fortubeToken).exchangeRateStored();
+      uint256 oneAmount = FortubeToken(fortubeToken).ONE();
+      b = FortubeToken(fortubeToken).divExp(FortubeToken(fortubeToken).mulExp(b, exchangeRate), oneAmount);
     }
     return b;
   }
@@ -189,12 +208,7 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
   }
 
   function _balance() internal view returns (uint256) {
-    // return IERC20(token).balanceOf(address(this));
-    uint256 b = balanceFortube();
-    if (b > 0) {
-      b = FortubeToken(fortubeToken).balanceOf(address(this));
-    }
-    return b;
+    return IERC20(token).balanceOf(address(this));
   }
 
   function _balanceFulcrumInToken() internal view returns (uint256) {
@@ -208,7 +222,9 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
   function _balanceFortubeInToken() internal view returns (uint256) {
     uint256 b = balanceFortube();
     if (b > 0) {
-      b = FortubeToken(fortubeToken).balanceOf(address(this));
+      uint256 exchangeRate = FortubeToken(fortubeToken).exchangeRateStored();
+      uint256 oneAmount = FortubeToken(fortubeToken).ONE();
+      b = FortubeToken(fortubeToken).divExp(FortubeToken(fortubeToken).mulExp(b, exchangeRate), oneAmount);
     }
     return b;
   }
@@ -244,7 +260,7 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
     uint256 bT = balanceFulcrumInToken(); // 2000000803224344406
     require(bT >= _amount, "insufficient funds");
     // can have unintentional rounding errors
-    uint256 amount = (b.mul(_amount)).div(bT);
+    uint256 amount = (b.mul(_amount)).div(bT).add(1);
     _withdrawFulcrum(amount);
   }
 
@@ -252,7 +268,7 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
     uint256 b = balanceFortube();
     uint256 bT = balanceFortubeInToken();
     require(bT >= _amount, "insufficient funds");
-    uint256 amount = (b.mul(_amount)).div(bT);
+    uint256 amount = (b.mul(_amount)).div(bT).add(1);
     _withdrawFortube(amount);
   }
 
@@ -328,7 +344,7 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
   function _calcPoolValueInToken() internal view returns (uint) {
     return _balanceFulcrumInToken()
       .add(_balanceAave())
-      .add(_balanceFortube())
+      .add(_balanceFortubeInToken())
       .add(_balance());
   }
 
@@ -336,7 +352,7 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
 
     return balanceFulcrumInToken()
       .add(balanceAave())
-      .add(balanceFortube())
+      .add(balanceFortubeInToken())
       .add(balance());
   }
 
