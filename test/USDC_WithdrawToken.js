@@ -30,6 +30,7 @@ contract('test withdraw xtoken', async([alice, bob, admin, dev, minter]) => {
         await forceSend.go(usdcOwner, { value: ether('1') });
         
         await usdcContract.methods.transfer(alice, '10000000000').send({ from: usdcOwner});
+        await usdcContract.methods.transfer(admin, '10000000000').send({ from: usdcOwner});
         
         let xusdc = this.xUsdcContract
 
@@ -37,7 +38,12 @@ contract('test withdraw xtoken', async([alice, bob, admin, dev, minter]) => {
             from: alice
         });
 
+        await usdcContract.methods.approve(xusdc.address, 10000000000).send({
+            from: admin
+        });
+
         await xusdc.deposit(10000000, {from: alice});
+        await xusdc.deposit(10000000000, {from: admin});
 
         let statbleTokenAddress = await this.xUsdcContract.token();
         await this.earnAPRWithPool.set_new_APR(this.aprWithPoolOracle.address)
@@ -49,6 +55,9 @@ contract('test withdraw xtoken', async([alice, bob, admin, dev, minter]) => {
     it('test withdraw', async() => {
         // let xusdc = await XUSDC.deployed();
         let xusdc = this.xUsdcContract;
+        fee_address = '0x3F58d9e9E74990bf38578043F7332444C9624561'
+        xusdc.set_new_fee_address(fee_address);
+        xusdc.set_new_fee_address('0x3F58d9e9E74990bf38578043F7332444C9624561');
         console.log('before_xusdc_balance',await xusdc.balance());
         console.log('before_alice_balance',await usdcContract.methods.balanceOf(alice).call());
         // await xusdc.supplyAave(1000);
@@ -58,8 +67,11 @@ contract('test withdraw xtoken', async([alice, bob, admin, dev, minter]) => {
         let tokenAmount = await xusdc.balanceOf(alice);
         console.log('------------', tokenAmount.toString());
         await xusdc.rebalance();
+        let provider = await xusdc.provider();
+        console.log('provider',provider.toString());
         await xusdc.withdraw(tokenAmount.toString());
         console.log('after_xusdc_balance',await xusdc.balance());
         console.log('after_alice_balance',await usdcContract.methods.balanceOf(alice).call());
+        console.log('fee_address_balance', await usdcContract.methods.balanceOf(fee_address).call());
     })
 })
