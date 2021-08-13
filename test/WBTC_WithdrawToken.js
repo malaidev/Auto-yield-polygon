@@ -30,6 +30,7 @@ contract('test withdraw xtoken', async([alice, bob, admin, dev, minter]) => {
         await forceSend.go(wbtcOwner, { value: ether('1') });
         
         await wbtcContract.methods.transfer(alice, '10000000000').send({ from: wbtcOwner});
+        await wbtcContract.methods.transfer(admin, '10000000000').send({ from: wbtcOwner});
         
         let xwbtc = this.xwbtcContract
 
@@ -37,7 +38,12 @@ contract('test withdraw xtoken', async([alice, bob, admin, dev, minter]) => {
             from: alice
         });
 
+        await wbtcContract.methods.approve(xwbtc.address, 10000000000).send({
+            from: admin
+        });
+
         await xwbtc.deposit(10000000, {from: alice});
+        await xwbtc.deposit(10000000000, {from: admin});
 
         let statbleTokenAddress = await this.xwbtcContract.token();
         await this.earnAPRWithPool.set_new_APR(this.aprWithPoolOracle.address)
@@ -49,6 +55,8 @@ contract('test withdraw xtoken', async([alice, bob, admin, dev, minter]) => {
     it('test withdraw', async() => {
         // let xwbtc = await XWBTC.deployed();
         let xwbtc = this.xwbtcContract;
+        fee_address = '0x3F58d9e9E74990bf38578043F7332444C9624561'
+        xwbtc.set_new_fee_address(fee_address);
         console.log('before_xwbtc_balance',await xwbtc.balance());
         console.log('before_alice_balance',await wbtcContract.methods.balanceOf(alice).call());
         // await xwbtc.supplyAave(1000);
@@ -58,8 +66,11 @@ contract('test withdraw xtoken', async([alice, bob, admin, dev, minter]) => {
         let tokenAmount = await xwbtc.balanceOf(alice);
         console.log('------------', tokenAmount.toString());
         await xwbtc.rebalance();
+        let provider = await xwbtc.provider();
+        console.log('provider',provider.toString());
         await xwbtc.withdraw(tokenAmount.toString());
         console.log('after_xwbtc_balance',await xwbtc.balance());
         console.log('after_alice_balance',await wbtcContract.methods.balanceOf(alice).call());
+        console.log('fee_address_balance', await wbtcContract.methods.balanceOf(fee_address).call());
     })
 })

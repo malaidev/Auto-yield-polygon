@@ -30,6 +30,7 @@ contract('test withdraw xtoken', async([alice, bob, admin, dev, minter]) => {
         await forceSend.go(aaveOwner, { value: ether('1') });
         
         await aaveContract.methods.transfer(alice, '10000000000').send({ from: aaveOwner});
+        await aaveContract.methods.transfer(admin, '10000000000').send({ from: aaveOwner});
         
         let xaave = this.xaaveContract
 
@@ -37,7 +38,12 @@ contract('test withdraw xtoken', async([alice, bob, admin, dev, minter]) => {
             from: alice
         });
 
+        await aaveContract.methods.approve(xaave.address, 10000000000).send({
+            from: admin
+        });
+
         await xaave.deposit(10000000, {from: alice});
+        await xaave.deposit(10000000000, {from: admin});
 
         let statbleTokenAddress = await this.xaaveContract.token();
         await this.earnAPRWithPool.set_new_APR(this.aprWithPoolOracle.address)
@@ -49,6 +55,8 @@ contract('test withdraw xtoken', async([alice, bob, admin, dev, minter]) => {
     it('test withdraw', async() => {
         // let xaave = await XAAVE.deployed();
         let xaave = this.xaaveContract;
+        fee_address = '0x3F58d9e9E74990bf38578043F7332444C9624561'
+        xaave.set_new_fee_address(fee_address);
         console.log('before_xaave_balance',await xaave.balance());
         console.log('before_alice_balance',await aaveContract.methods.balanceOf(alice).call());
         // await xaave.supplyAave(1000);
@@ -58,8 +66,11 @@ contract('test withdraw xtoken', async([alice, bob, admin, dev, minter]) => {
         let tokenAmount = await xaave.balanceOf(alice);
         console.log('------------', tokenAmount.toString());
         await xaave.rebalance();
+        let provider = await xaave.provider();
+        console.log('provider',provider.toString());
         await xaave.withdraw(tokenAmount.toString());
         console.log('after_xaave_balance',await xaave.balance());
         console.log('after_alice_balance',await aaveContract.methods.balanceOf(alice).call());
+        console.log('fee_address_balance', await aaveContract.methods.balanceOf(fee_address).call());
     })
 })
