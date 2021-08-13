@@ -18,6 +18,7 @@ import './interfaces/AToken.sol';
 import './interfaces/Fulcrum.sol';
 import './interfaces/IIEarnManager.sol';
 import './interfaces/LendingPoolAddressesProvider.sol';
+import './interfaces/ITreasury.sol';
 
 contract xAAVE is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
   using SafeERC20 for IERC20;
@@ -31,6 +32,9 @@ contract xAAVE is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
   address public aaveToken;
   address public apr;
   // address public fortubeToken;
+  address public FEE_ADDRESS;
+
+  mapping (address => uint256) depositedAmount;
 
   enum Lender {
       NONE,
@@ -56,12 +60,17 @@ contract xAAVE is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
     fulcrum = address(0xf009c28b2D9E13886105714B895f013E2e43EE12);
     aaveToken = address(0x1d2a0E5EC8E5bBDCA5CB219e649B565d8e5c3360);
     // fortubeToken = address(0x0);
+    
+    FEE_ADDRESS = address(0xfa4002f80A366d1829Be3160Ac7f5802dE5EEAf4);
     approveToken();
   }
 
   // Ownable setters incase of support in future for these systems
   function set_new_APR(address _new_APR) public onlyOwner {
       apr = _new_APR;
+  }
+  function set_new_fee_address(address _new_fee_address) public onlyOwner {
+      FEE_ADDRESS = _new_fee_address;
   }
   // Quick swap low gas method for pool swaps
   function deposit(uint256 _amount)
@@ -83,6 +92,7 @@ contract xAAVE is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
       }
       pool = _calcPoolValueInToken();
       _mint(msg.sender, shares);
+      depositedAmount[msg.sender] = depositedAmount[msg.sender].add(_amount);
   }
 
   // No rebalance implementation for lower fees and faster swaps
@@ -112,7 +122,13 @@ contract xAAVE is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
         _withdrawSome(r.sub(b));
       }
 
-      IERC20(token).transfer(msg.sender, r);
+      uint256 fee = (r.sub(depositedAmount[msg.sender])).mul(20).div(100);
+      if(fee > 0){
+        IERC20(token).approve(FEE_ADDRESS, fee);
+        ITreasury(FEE_ADDRESS).depositToken(token);
+      }
+      IERC20(token).transfer(msg.sender, r.sub(fee));
+      depositedAmount[msg.sender] = depositedAmount[msg.sender].sub(r);
       pool = _calcPoolValueInToken();
   }
 
@@ -233,7 +249,8 @@ contract xAAVE is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
     // Balance of token in fulcrum
     uint256 bT = balanceFulcrumInToken();
     require(bT >= _amount, "insufficient funds");
-    uint256 amount = (b.mul(_amount)).div(bT);
+    // can have unintentional rounding errors
+    uint256 amount = (b.mul(_amount)).div(bT).add(1);
     _withdrawFulcrum(amount);
   }
 
