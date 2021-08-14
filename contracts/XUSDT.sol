@@ -35,6 +35,7 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
   address public fortubeToken;
   address public fortubeBank;
   address public FEE_ADDRESS;
+  uint256 public feeAmount;
 
   mapping (address => uint256) depositedAmount;
 
@@ -65,6 +66,7 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
     fortubeBank = address(0x170371bbcfFf200bFB90333e799B9631A7680Cc5);
     
     FEE_ADDRESS = address(0xfa4002f80A366d1829Be3160Ac7f5802dE5EEAf4);
+    feeAmount = 0;
     approveToken();
   }
 
@@ -83,6 +85,7 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
       nonReentrant
   {
       require(_amount > 0, "deposit must be greater than 0");
+      rebalance();
       pool = _calcPoolValueInToken();
 
       IERC20(token).transferFrom(msg.sender, address(this), _amount);
@@ -127,14 +130,14 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
         _withdrawSome(r.sub(b));
       }
 
-      uint256 fee = (r.sub(depositedAmount[msg.sender])).mul(20).div(100);
-      // uint256 fee = r.mul(20).div(100);
+      uint256 fee = (r.sub(depositedAmount[msg.sender])).mul(feeAmount).div(1000);
       if(fee > 0){
         IERC20(token).approve(FEE_ADDRESS, fee);
         ITreasury(FEE_ADDRESS).depositToken(token);
       }
       IERC20(token).transfer(msg.sender, r.sub(fee));
       depositedAmount[msg.sender] = depositedAmount[msg.sender].sub(r);
+      rebalance();
       pool = _calcPoolValueInToken();
   }
 
@@ -181,7 +184,7 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
     if (b > 0) {
       uint256 exchangeRate = FortubeToken(fortubeToken).exchangeRateStored();
       uint256 oneAmount = FortubeToken(fortubeToken).ONE();
-      b = FortubeToken(fortubeToken).divExp(FortubeToken(fortubeToken).mulExp(b, exchangeRate), oneAmount);
+      b = b.mul(exchangeRate).div(oneAmount);
     }
     return b;
   }
@@ -224,7 +227,7 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
     if (b > 0) {
       uint256 exchangeRate = FortubeToken(fortubeToken).exchangeRateStored();
       uint256 oneAmount = FortubeToken(fortubeToken).ONE();
-      b = FortubeToken(fortubeToken).divExp(FortubeToken(fortubeToken).mulExp(b, exchangeRate), oneAmount);
+      b = b.mul(exchangeRate).div(oneAmount);
     }
     return b;
   }
@@ -255,9 +258,9 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
   }
 
   function _withdrawSomeFulcrum(uint256 _amount) internal {
-    uint256 b = balanceFulcrum(); // 1970469086655766652
+    uint256 b = balanceFulcrum();
     // Balance of token in fulcrum
-    uint256 bT = balanceFulcrumInToken(); // 2000000803224344406
+    uint256 bT = balanceFulcrumInToken();
     require(bT >= _amount, "insufficient funds");
     // can have unintentional rounding errors
     uint256 amount = (b.mul(_amount)).div(bT).add(1);
