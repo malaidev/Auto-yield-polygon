@@ -45,4 +45,7 @@ contract TokenStructs {
         bool sign; // true if positive
         uint256 value;
     }
+
+    event Deposit(address indexed investor, uint256 indexed amount);
+    event Withdraw(address indexed investor, uint256 indexed amount);
 }
