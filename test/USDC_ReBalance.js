@@ -32,16 +32,16 @@ contract('test rebalance', async([alice, bob, admin, dev, minter]) => {
 
         let xusdc = this.xUsdcContract
 
+        let statbleTokenAddress = await this.xUsdcContract.token();
+        await this.earnAPRWithPool.set_new_APR(this.aprWithPoolOracle.address)
+        await this.xUsdcContract.set_new_APR(this.earnAPRWithPool.address)
+        await this.earnAPRWithPool.addXToken(statbleTokenAddress, this.xUsdcContract.address);
+
         await usdcContract.methods.approve(xusdc.address, 10000000).send({
             from: alice
         });
 
         await xusdc.deposit(10000000, {from: alice});
-
-        let statbleTokenAddress = await this.xUsdcContract.token();
-        await this.earnAPRWithPool.set_new_APR(this.aprWithPoolOracle.address)
-        await this.xUsdcContract.set_new_APR(this.earnAPRWithPool.address)
-        await this.earnAPRWithPool.addXToken(statbleTokenAddress, this.xUsdcContract.address);
 
         console.log('---ended-before---');
     });
