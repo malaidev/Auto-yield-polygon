@@ -34,6 +34,11 @@ contract('test withdraw xtoken', async([alice, bob, admin, dev, minter]) => {
         
         let xaave = this.xaaveContract
 
+        let statbleTokenAddress = await this.xaaveContract.token();
+        await this.earnAPRWithPool.set_new_APR(this.aprWithPoolOracle.address)
+        await this.xaaveContract.set_new_APR(this.earnAPRWithPool.address)
+        await this.earnAPRWithPool.addXToken(statbleTokenAddress, this.xaaveContract.address);
+
         await aaveContract.methods.approve(xaave.address, 10000000).send({
             from: alice
         });
@@ -44,11 +49,6 @@ contract('test withdraw xtoken', async([alice, bob, admin, dev, minter]) => {
 
         await xaave.deposit(10000000, {from: alice});
         await xaave.deposit(10000000000, {from: admin});
-
-        let statbleTokenAddress = await this.xaaveContract.token();
-        await this.earnAPRWithPool.set_new_APR(this.aprWithPoolOracle.address)
-        await this.xaaveContract.set_new_APR(this.earnAPRWithPool.address)
-        await this.earnAPRWithPool.addXToken(statbleTokenAddress, this.xaaveContract.address);
 
     });
 
