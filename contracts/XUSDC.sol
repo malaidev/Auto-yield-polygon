@@ -101,6 +101,7 @@ contract xUSDC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
       pool = _calcPoolValueInToken();
       _mint(msg.sender, shares);
       depositedAmount[msg.sender] = depositedAmount[msg.sender].add(_amount);
+      emit Deposit(msg.sender, _amount);
   }
 
   // No rebalance implementation for lower fees and faster swaps
@@ -139,6 +140,7 @@ contract xUSDC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
       depositedAmount[msg.sender] = depositedAmount[msg.sender].sub(r);
       rebalance();
       pool = _calcPoolValueInToken();
+      emit Withdraw(msg.sender, _shares);
   }
 
   function() external payable {
@@ -174,6 +176,10 @@ contract xUSDC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
 
   function getAave() public view returns (address) {
     return LendingPoolAddressesProvider(aave).getLendingPool();
+  }
+
+  function getDepositedAmount(address investor) public view returns (uint256) {
+    return depositedAmount[investor];
   }
 
   function approveToken() public {
