@@ -35,6 +35,7 @@ contract xUSDC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
   address public fortubeToken;
   address public fortubeBank;
   address public FEE_ADDRESS;
+  uint256 public feeAmount;
 
   mapping (address => uint256) depositedAmount;
 
@@ -64,12 +65,16 @@ contract xUSDC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
     fortubeBank = address(0x170371bbcfFf200bFB90333e799B9631A7680Cc5);
     
     FEE_ADDRESS = address(0xfa4002f80A366d1829Be3160Ac7f5802dE5EEAf4);
+    feeAmount = 0;
     approveToken();
   }
 
   // Ownable setters incase of support in future for these systems
   function set_new_APR(address _new_APR) public onlyOwner {
       apr = _new_APR;
+  }
+  function set_new_feeAmount(uint256 fee) public onlyOwner{
+    feeAmount = fee;
   }
   function set_new_fee_address(address _new_fee_address) public onlyOwner {
       FEE_ADDRESS = _new_fee_address;
@@ -80,6 +85,7 @@ contract xUSDC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
       nonReentrant
   {
       require(_amount > 0, "deposit must be greater than 0");
+      rebalance();
       pool = _calcPoolValueInToken();
 
       IERC20(token).transferFrom(msg.sender, address(this), _amount);
@@ -124,13 +130,14 @@ contract xUSDC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
         _withdrawSome(r.sub(b));
       }
 
-      uint256 fee = (r.sub(depositedAmount[msg.sender])).mul(20).div(100);
+      uint256 fee = (r.sub(depositedAmount[msg.sender])).mul(feeAmount).div(1000);
       if(fee > 0){
         IERC20(token).approve(FEE_ADDRESS, fee);
         ITreasury(FEE_ADDRESS).depositToken(token);
       }
       IERC20(token).transfer(msg.sender, r.sub(fee));
       depositedAmount[msg.sender] = depositedAmount[msg.sender].sub(r);
+      rebalance();
       pool = _calcPoolValueInToken();
   }
 
@@ -179,7 +186,7 @@ contract xUSDC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
     if (b > 0) {
       uint256 exchangeRate = FortubeToken(fortubeToken).exchangeRateStored();
       uint256 oneAmount = FortubeToken(fortubeToken).ONE();
-      b = FortubeToken(fortubeToken).divExp(FortubeToken(fortubeToken).mulExp(b, exchangeRate), oneAmount);
+      b = b.mul(exchangeRate).div(oneAmount);
     }
     return b;
   }
@@ -218,7 +225,7 @@ contract xUSDC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
     if (b > 0) {
       uint256 exchangeRate = FortubeToken(fortubeToken).exchangeRateStored();
       uint256 oneAmount = FortubeToken(fortubeToken).ONE();
-      b = FortubeToken(fortubeToken).divExp(FortubeToken(fortubeToken).mulExp(b, exchangeRate), oneAmount);
+      b = b.mul(exchangeRate).div(oneAmount);
     }
     return b;
   }
