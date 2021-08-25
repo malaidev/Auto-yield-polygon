@@ -12,7 +12,6 @@ import './libraries/ERC20.sol';
 import './libraries/ERC20Detailed.sol';
 import './libraries/TokenStructs.sol';
 import './interfaces/Aave.sol';
-import './interfaces/AToken.sol';
 import './interfaces/FortubeToken.sol';
 import './interfaces/FortubeBank.sol';
 import './interfaces/Fulcrum.sol';
@@ -49,13 +48,6 @@ contract xWBTC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
   Lender public provider = Lender.NONE;
 
   constructor () public ERC20Detailed("xend WBTC", "xWTBC", 18) {
-    //mumbai network
-    // token = address(0xcf6bc4ae4a99c539353e4bf4c80fff296413ceea);
-    // apr = address(0xCC7986A6a8A0774070868Cf0D4aCe451DbEC76EF);
-    // aave = address(0x178113104fEcbcD7fF8669a0150721e231F0FD4B);
-    // fulcrum = address(0x178113104fEcbcD7fF8669a0150721e231F0FD4B);
-    // aaveToken = address(0xc9276ECa6798A14f64eC33a526b547DAd50bDa2F);
-
     token = address(0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6);
     apr = address(0xdD6d648C991f7d47454354f4Ef326b04025a48A8);
     aave = address(0xd05e3E715d945B59290df0ae8eF85c1BdB684744);
@@ -88,7 +80,7 @@ contract xWBTC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
       rebalance();
       pool = _calcPoolValueInToken();
 
-      IERC20(token).transferFrom(msg.sender, address(this), _amount);
+      IERC20(token).safeTransferFrom(msg.sender, address(this), _amount);
 
       // Calculate pool shares
       uint256 shares = 0;
@@ -136,7 +128,7 @@ contract xWBTC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
         IERC20(token).approve(FEE_ADDRESS, fee);
         ITreasury(FEE_ADDRESS).depositToken(token);
       }
-      IERC20(token).transfer(msg.sender, r.sub(fee));
+      IERC20(token).safeTransfer(msg.sender, r.sub(fee));
       depositedAmount[msg.sender] = depositedAmount[msg.sender].sub(r);
       rebalance();
       pool = _calcPoolValueInToken();

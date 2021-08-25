@@ -13,7 +13,6 @@ import './libraries/ERC20.sol';
 import './libraries/ERC20Detailed.sol';
 import './libraries/TokenStructs.sol';
 import './interfaces/Aave.sol';
-import './interfaces/AToken.sol';
 import './interfaces/FortubeToken.sol';
 import './interfaces/FortubeBank.sol';
 import './interfaces/Fulcrum.sol';
@@ -49,13 +48,6 @@ contract xUSDC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
   Lender public provider = Lender.NONE;
 
   constructor () public ERC20Detailed("xend USDC", "xUSDC", 18) {
-    //mumbai network
-    // token = address(0x603b86075a510c31e3749058f9c1d97ad57646e3);
-    // apr = address(0xCC7986A6a8A0774070868Cf0D4aCe451DbEC76EF);
-    // aave = address(0x178113104fEcbcD7fF8669a0150721e231F0FD4B);
-    // fulcrum = address(0x2e1a74a16e3a9f8e3d825902ab9fb87c606cb13f);
-    // aaveToken = address(0x2271e3Fef9e15046d09E1d78a8FF038c691E9Cf9);
-
     token = address(0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174);
     apr = address(0xdD6d648C991f7d47454354f4Ef326b04025a48A8);
     aave = address(0xd05e3E715d945B59290df0ae8eF85c1BdB684744);
@@ -88,7 +80,7 @@ contract xUSDC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
       rebalance();
       pool = _calcPoolValueInToken();
 
-      IERC20(token).transferFrom(msg.sender, address(this), _amount);
+      IERC20(token).safeTransferFrom(msg.sender, address(this), _amount);
 
       // Calculate pool shares
       uint256 shares = 0;
@@ -136,7 +128,7 @@ contract xUSDC is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
         IERC20(token).approve(FEE_ADDRESS, fee);
         ITreasury(FEE_ADDRESS).depositToken(token);
       }
-      IERC20(token).transfer(msg.sender, r.sub(fee));
+      IERC20(token).safeTransfer(msg.sender, r.sub(fee));
       depositedAmount[msg.sender] = depositedAmount[msg.sender].sub(r);
       rebalance();
       pool = _calcPoolValueInToken();
