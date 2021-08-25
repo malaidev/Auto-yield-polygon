@@ -73,11 +73,11 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
   function set_new_APR(address _new_APR) public onlyOwner {
       apr = _new_APR;
   }
+  function set_new_feeAmount(uint256 fee) public onlyOwner{
+    feeAmount = fee;
+  }
   function set_new_fee_address(address _new_fee_address) public onlyOwner {
       FEE_ADDRESS = _new_fee_address;
-  }
-  function set_new_FULCRUM(address _new_FULCRUM) public onlyOwner {
-      fulcrum = _new_FULCRUM;
   }
   // Quick swap low gas method for pool swaps
   function deposit(uint256 _amount)
