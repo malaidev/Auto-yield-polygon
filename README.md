@@ -8,7 +8,7 @@ We are using 3 lending protocols on Polygon mainnet(AAVE, Fulcrum and ForTube). 
 
 ## Polygon Earn - Smart Contract Operations:
 
-![Operation_img](https://github.com/StarsIdea/polygon-earn/blob/main/operations.png)
+![Operation_img](https://github.com/xendfinance/polygon-earn/blob/main/operations.png)
 
 ### 1. Deposit
 * Selects lending provider
