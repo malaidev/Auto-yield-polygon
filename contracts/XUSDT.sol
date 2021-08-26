@@ -33,7 +33,7 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
   address public apr;
   address public fortubeToken;
   address public fortubeBank;
-  address public FEE_ADDRESS;
+  address public feeAddress;
   uint256 public feeAmount;
 
   mapping (address => uint256) depositedAmount;
@@ -55,8 +55,7 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
     aaveToken = address(0x60D55F02A771d515e077c9C2403a1ef324885CeC);
     fortubeToken = address(0xE2272A850188B43E94eD6DF5b75f1a2FDcd5aC26);
     fortubeBank = address(0x170371bbcfFf200bFB90333e799B9631A7680Cc5);
-    
-    FEE_ADDRESS = address(0xfa4002f80A366d1829Be3160Ac7f5802dE5EEAf4);
+    feeAddress = address(0xfa4002f80A366d1829Be3160Ac7f5802dE5EEAf4);
     feeAmount = 0;
     approveToken();
   }
@@ -68,7 +67,7 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
     feeAmount = fee;
   }
   function set_new_fee_address(address _new_fee_address) public onlyOwner {
-      FEE_ADDRESS = _new_fee_address;
+      feeAddress = _new_fee_address;
   }
   // Quick swap low gas method for pool swaps
   function deposit(uint256 _amount)
@@ -124,8 +123,8 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
 
       uint256 fee = (r.sub(depositedAmount[msg.sender])).mul(feeAmount).div(1000);
       if(fee > 0){
-        IERC20(token).approve(FEE_ADDRESS, fee);
-        ITreasury(FEE_ADDRESS).depositToken(token);
+        IERC20(token).approve(feeAddress, fee);
+        ITreasury(feeAddress).depositToken(token);
       }
       IERC20(token).safeTransfer(msg.sender, r.sub(fee));
       depositedAmount[msg.sender] = depositedAmount[msg.sender].sub(r);
@@ -331,14 +330,13 @@ contract xUSDT is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
       FortubeBank(fortubeBank).deposit(token, amount);
   }
   function _withdrawAave(uint amount) internal {
-      Aave(getAave()).withdraw(token, amount, address(this));
+      require(Aave(getAave()).withdraw(token, amount, address(this)) > 0, "AAVE: withdraw failed"); // static-analysis xusdt
   }
   function _withdrawFulcrum(uint amount) internal {
       require(Fulcrum(fulcrum).burn(address(this), amount) > 0, "FULCRUM: withdraw failed");
   }
   function _withdrawFortube(uint amount) internal {
-      require(amount > 0, "FORTUBE: withdraw failed");
-      FortubeBank(fortubeBank).withdraw(token, amount);
+      require(FortubeBank(fortubeBank).withdraw(token, amount) > 0, "Fortube: withdraw failed"); // static-analysis xusdt
   }
 
   function _calcPoolValueInToken() internal view returns (uint) {
