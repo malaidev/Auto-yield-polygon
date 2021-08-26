@@ -13,7 +13,6 @@ import './libraries/ERC20.sol';
 import './libraries/ERC20Detailed.sol';
 import './libraries/TokenStructs.sol';
 import './interfaces/Aave.sol';
-import './interfaces/AToken.sol';
 import './interfaces/Fulcrum.sol';
 import './interfaces/IIEarnManager.sol';
 import './interfaces/LendingPoolAddressesProvider.sol';
@@ -30,7 +29,7 @@ contract xAAVE is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
   address public aave;
   address public aaveToken;
   address public apr;
-  address public FEE_ADDRESS;
+  address public feeAddress;
   uint256 public feeAmount;
 
   mapping (address => uint256) depositedAmount;
@@ -44,20 +43,12 @@ contract xAAVE is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
   Lender public provider = Lender.NONE;
 
   constructor () public ERC20Detailed("xend AAVE", "xAAVE", 18) {
-    //mumbai network
-    // token = address(0x57baea64620d5b7254fff6976859a53d4b71d950);
-    // apr = address(0xCC7986A6a8A0774070868Cf0D4aCe451DbEC76EF);
-    // aave = address(0x178113104fEcbcD7fF8669a0150721e231F0FD4B);
-    // fulcrum = address(0xf009c28b2d9e13886105714b895f013e2e43ee12);
-    // aaveToken = address(0x7ec62b6fC19174255335C8f4346E0C2fcf870a6B);
-    
     token = address(0xD6DF932A45C0f255f85145f286eA0b292B21C90B);
     apr = address(0xdD6d648C991f7d47454354f4Ef326b04025a48A8);
     aave = address(0xd05e3E715d945B59290df0ae8eF85c1BdB684744);
     fulcrum = address(0xf009c28b2D9E13886105714B895f013E2e43EE12);
     aaveToken = address(0x1d2a0E5EC8E5bBDCA5CB219e649B565d8e5c3360);
-    
-    FEE_ADDRESS = address(0xfa4002f80A366d1829Be3160Ac7f5802dE5EEAf4);
+    feeAddress = address(0xfa4002f80A366d1829Be3160Ac7f5802dE5EEAf4);
     feeAmount = 0;
     approveToken();
   }
@@ -70,7 +61,7 @@ contract xAAVE is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
     feeAmount = fee;
   }
   function set_new_fee_address(address _new_fee_address) public onlyOwner {
-      FEE_ADDRESS = _new_fee_address;
+      feeAddress = _new_fee_address;
   }
   // Quick swap low gas method for pool swaps
   function deposit(uint256 _amount)
@@ -81,7 +72,7 @@ contract xAAVE is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
       rebalance();
       pool = _calcPoolValueInToken();
 
-      IERC20(token).transferFrom(msg.sender, address(this), _amount);
+      IERC20(token).safeTransferFrom(msg.sender, address(this), _amount);
 
       // Calculate pool shares
       uint256 shares = 0;
@@ -126,10 +117,10 @@ contract xAAVE is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
 
       uint256 fee = (r.sub(depositedAmount[msg.sender])).mul(feeAmount).div(1000);
       if(fee > 0){
-        IERC20(token).approve(FEE_ADDRESS, fee);
-        ITreasury(FEE_ADDRESS).depositToken(token);
+        IERC20(token).approve(feeAddress, fee);
+        ITreasury(feeAddress).depositToken(token);
       }
-      IERC20(token).transfer(msg.sender, r.sub(fee));
+      IERC20(token).safeTransfer(msg.sender, r.sub(fee));
       depositedAmount[msg.sender] = depositedAmount[msg.sender].sub(r);
       rebalance();
       pool = _calcPoolValueInToken();
@@ -148,7 +139,7 @@ contract xAAVE is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
     }
     if (aapr > max) {
       max = aapr;
-    } 
+    }
     Lender newProvider = Lender.NONE;
     if (max == aapr) {
       newProvider = Lender.AAVE;
@@ -251,7 +242,7 @@ contract xAAVE is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
         supplyFulcrum(balance());
       } else if (newProvider == Lender.AAVE) {
         supplyAave(balance());
-      } 
+      }
     }
 
     provider = newProvider;
@@ -264,7 +255,7 @@ contract xAAVE is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
         supplyFulcrum(_balance());
       } else if (newProvider == Lender.AAVE) {
         supplyAave(_balance());
-      } 
+      }
     }
     provider = newProvider;
   }
@@ -277,7 +268,7 @@ contract xAAVE is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
   }
 
   function _withdrawAave(uint amount) internal {
-      Aave(getAave()).withdraw(token, amount, address(this));
+      require(Aave(getAave()).withdraw(token, amount, address(this)) > 0, "AAVE: withdraw failed"); // static-analysis xaave
   }
   function _withdrawFulcrum(uint amount) internal {
       require(Fulcrum(fulcrum).burn(address(this), amount) > 0, "FULCRUM: withdraw failed");

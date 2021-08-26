@@ -1,4 +1,4 @@
-const { BN, ether, balance } = require('openzeppelin-test-helpers');
+const { BN, ether, balance, time } = require('openzeppelin-test-helpers');
 const { expect } = require('chai');
 
 const APRWithPoolOracle = artifacts.require('APRWithPoolOracle')
@@ -49,6 +49,12 @@ contract('test withdraw xtoken', async([alice, bob, admin, dev, minter]) => {
             from: admin
         });
 
+
+        const xbalance = await xusdc.balance();
+        console.log('before_xusdc_balance',xbalance.toString());
+        const ibalance = await usdcContract.methods.balanceOf(alice).call()
+        console.log('before_alice_balance',ibalance.toString());
+
         await xusdc.deposit(10000000, {from: alice});
         await xusdc.deposit(10000000000, {from: admin});
 
@@ -60,20 +66,31 @@ contract('test withdraw xtoken', async([alice, bob, admin, dev, minter]) => {
         fee_address = '0x3F58d9e9E74990bf38578043F7332444C9624561'
         xusdc.set_new_fee_address(fee_address);
         xusdc.set_new_fee_address('0x3F58d9e9E74990bf38578043F7332444C9624561');
-        console.log('before_xusdc_balance',await xusdc.balance());
-        console.log('before_alice_balance',await usdcContract.methods.balanceOf(alice).call());
+        // console.log('before_xusdc_balance',await xusdc.balance());
+        // console.log('before_alice_balance',await usdcContract.methods.balanceOf(alice).call());
+
+        let xbalance = await xusdc.balance();
+        console.log('current_xusdc_balance',xbalance.toString());
+        let ibalance = await usdcContract.methods.balanceOf(alice).call()
+        console.log('current_alice_balance',ibalance.toString());
+
         // await xusdc.supplyAave(1000);
         // let aave_balance = await xusdc.balanceAave();
         // console.log('before_aave_balance', aave_balance.toString());
         console.log('xusdc_balance',await xusdc.balance());
         let tokenAmount = await xusdc.balanceOf(alice);
         console.log('------------', tokenAmount.toString());
-        await xusdc.rebalance();
+        // await xusdc.rebalance();
         let provider = await xusdc.provider();
         console.log('provider',provider.toString());
+        await time.increase(time.duration.days(300));
         await xusdc.withdraw(tokenAmount.toString());
-        console.log('after_xusdc_balance',await xusdc.balance());
-        console.log('after_alice_balance',await usdcContract.methods.balanceOf(alice).call());
+        // console.log('after_xusdc_balance',await xusdc.balance());
+        // console.log('after_alice_balance',await usdcContract.methods.balanceOf(alice).call());
+        xbalance = await xusdc.balance();
+        console.log('after_xusdc_balance',xbalance.toString());
+        ibalance = await usdcContract.methods.balanceOf(alice).call()
+        console.log('after_alice_balance',ibalance.toString());
         console.log('fee_address_balance', await usdcContract.methods.balanceOf(fee_address).call());
     })
 })
