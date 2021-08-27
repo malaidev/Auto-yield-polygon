@@ -1,4 +1,5 @@
-pragma solidity ^0.5.0;
+// SPDX-License-Identifier: MIT
+pragma solidity 0.6.8;
 pragma experimental ABIEncoderV2;
 
 import './libraries/Context.sol';
@@ -10,7 +11,6 @@ import './libraries/Address.sol';
 import './libraries/SafeERC20.sol';
 import './libraries/ReentrancyGuard.sol';
 import './libraries/ERC20.sol';
-import './libraries/ERC20Detailed.sol';
 import './libraries/TokenStructs.sol';
 import './interfaces/Aave.sol';
 import './interfaces/Fulcrum.sol';
@@ -18,7 +18,7 @@ import './interfaces/IIEarnManager.sol';
 import './interfaces/LendingPoolAddressesProvider.sol';
 import './interfaces/ITreasury.sol';
 
-contract xAAVE is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
+contract xAAVE is ERC20, ReentrancyGuard, Ownable, TokenStructs {
   using SafeERC20 for IERC20;
   using Address for address;
   using SafeMath for uint256;
@@ -42,7 +42,7 @@ contract xAAVE is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
 
   Lender public provider = Lender.NONE;
 
-  constructor () public ERC20Detailed("xend AAVE", "xAAVE", 18) {
+  constructor () public ERC20("xend AAVE", "xAAVE") {
     token = address(0xD6DF932A45C0f255f85145f286eA0b292B21C90B);
     apr = address(0xdD6d648C991f7d47454354f4Ef326b04025a48A8);
     aave = address(0xd05e3E715d945B59290df0ae8eF85c1BdB684744);
@@ -80,7 +80,7 @@ contract xAAVE is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
         shares = _amount;
         pool = _amount;
       } else {
-        shares = (_amount.mul(_totalSupply)).div(pool);
+        shares = (_amount.mul(totalSupply())).div(pool);
       }
       pool = _calcPoolValueInToken();
       _mint(msg.sender, shares);
@@ -101,11 +101,8 @@ contract xAAVE is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
       // Could have over value from xTokens
       pool = _calcPoolValueInToken();
       // Calc to redeem before updating balances
-      uint256 r = (pool.mul(_shares)).div(_totalSupply);
-
-
-      _balances[msg.sender] = _balances[msg.sender].sub(_shares, "redeem amount exceeds balance");
-      _totalSupply = _totalSupply.sub(_shares);
+      uint256 r = (pool.mul(_shares)).div(totalSupply());
+      _burn(msg.sender, _shares);
 
       emit Transfer(msg.sender, address(0), _shares);
 
@@ -127,9 +124,7 @@ contract xAAVE is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
       emit Withdraw(msg.sender, _shares);
   }
 
-  function() external payable {
-
-  }
+  receive() external payable {}
 
   function recommend() public view returns (Lender) {
     (, uint256 fapr, uint256 aapr, ) = IIEarnManager(apr).recommend(token);
@@ -268,7 +263,7 @@ contract xAAVE is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
   }
 
   function _withdrawAave(uint amount) internal {
-      require(Aave(getAave()).withdraw(token, amount, address(this)) > 0, "AAVE: withdraw failed"); // static-analysis xaave
+      require(Aave(getAave()).withdraw(token, amount, address(this)) > 0, "AAVE: withdraw failed");
   }
   function _withdrawFulcrum(uint amount) internal {
       require(Fulcrum(fulcrum).burn(address(this), amount) > 0, "FULCRUM: withdraw failed");
@@ -289,6 +284,6 @@ contract xAAVE is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, TokenStructs {
 
   function getPricePerFullShare() public view returns (uint) {
     uint _pool = calcPoolValueInToken();
-    return _pool.mul(1e18).div(_totalSupply);
+    return _pool.mul(1e18).div(totalSupply());
   }
 }
