@@ -1,4 +1,5 @@
-pragma solidity ^0.5.0;
+// SPDX-License-Identifier: MIT
+pragma solidity 0.6.8;
 
 import './libraries/Context.sol';
 import './libraries/Ownable.sol';
@@ -117,7 +118,7 @@ contract EarnAPRWithPool is Ownable {
       address token,
       address fToken
     ) public onlyOwner {
-        require(fulcrum[token] == address(0), "This token is already set."); //  manual-review/EarnAPRWithPool
+        require(fulcrum[token] == address(0), "This token is already set.");
         fulcrum[token] = fToken;
     }
 
@@ -132,7 +133,7 @@ contract EarnAPRWithPool is Ownable {
       address token,
       address xToken
     ) public onlyOwner {
-      require(xTokens[token] == address(0), "This token is already set."); //  manual-review/EarnAPRWithPool
+      require(xTokens[token] == address(0), "This token is already set.");
         xTokens[token] = xToken;
     }
 
@@ -140,7 +141,7 @@ contract EarnAPRWithPool is Ownable {
       address token,
       address ftToken
     ) public onlyOwner {
-        require(fortube[token] == address(0), "This token is already set."); //  manual-review/EarnAPRWithPool
+        require(fortube[token] == address(0), "This token is already set.");
         fortube[token] = ftToken;
     }
 
