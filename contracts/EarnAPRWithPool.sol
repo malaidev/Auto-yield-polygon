@@ -36,7 +36,6 @@ contract EarnAPRWithPool is Ownable {
     mapping(address => uint256) public pools;
     mapping(address => address) public fulcrum;
     mapping(address => address) public aave;
-    mapping(address => address) public xTokens;
     mapping(address => address) public fortube;
 
     address public APR;
@@ -79,24 +78,11 @@ contract EarnAPRWithPool is Ownable {
       uint256 _aave,
       uint256 _fortube
     ) {
-      address xToken = xTokens[_token];
-      uint256 _supply = 0;
-      if (xToken != address(0)) {
-        _supply = IxToken(xToken).calcPoolValueInToken();
-      }
-      return getAPROptionsAdjusted(_token, _supply);
-    }
-
-    function getAPROptionsAdjusted(address _token, uint256 _supply) public view returns (
-      uint256 _fulcrum,
-      uint256 _aave,
-      uint256 _fortube
-    ) {
 
       address addr;
       addr = fulcrum[_token];
       if (addr != address(0)) {
-        _fulcrum = IAPRWithPoolOracle(APR).getFulcrumAPRAdjusted(addr, _supply);
+        _fulcrum = IAPRWithPoolOracle(APR).getFulcrumAPRAdjusted(addr, 0);
       }
       addr = aave[_token];
       if (addr != address(0)) {
@@ -127,14 +113,6 @@ contract EarnAPRWithPool is Ownable {
       address aToken
     ) public onlyOwner {
         aave[token] = aToken;
-    }
-
-    function addXToken(
-      address token,
-      address xToken
-    ) public onlyOwner {
-      require(xTokens[token] == address(0), "This token is already set.");
-        xTokens[token] = xToken;
     }
 
     function addFTToken(
