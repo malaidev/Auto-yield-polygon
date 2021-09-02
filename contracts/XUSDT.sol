@@ -64,7 +64,7 @@ contract xUSDT is ERC20, ReentrancyGuard, Ownable, TokenStructs {
       apr = _new_APR;
   }
   function set_new_feeAmount(uint256 fee) public onlyOwner{
-    require(fee < 500, 'fee amount must be less than 50%');
+    require(fee < 1000, 'fee amount must be less than 100%');
     feeAmount = fee;
   }
   function set_new_fee_address(address _new_fee_address) public onlyOwner {
@@ -126,7 +126,6 @@ contract xUSDT is ERC20, ReentrancyGuard, Ownable, TokenStructs {
         _withdrawSome(r.sub(b));
       }
 
-      uint256 depositedAmount1 = depositedAmount[msg.sender];
       uint256 fee = profit.mul(feeAmount).div(1000);
       if(fee > 0){
         IERC20(token).approve(feeAddress, fee);
