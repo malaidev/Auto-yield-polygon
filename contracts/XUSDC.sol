@@ -65,6 +65,7 @@ contract xUSDC is ERC20, ReentrancyGuard, Ownable, TokenStructs {
       apr = _new_APR;
   }
   function set_new_feeAmount(uint256 fee) public onlyOwner{
+    require(fee < 500, 'fee amount must be less than 50%');
     feeAmount = fee;
   }
   function set_new_fee_address(address _new_fee_address) public onlyOwner {
@@ -76,18 +77,20 @@ contract xUSDC is ERC20, ReentrancyGuard, Ownable, TokenStructs {
       nonReentrant
   {
       require(_amount > 0, "deposit must be greater than 0");
-      rebalance();
       pool = _calcPoolValueInToken();
-
       IERC20(token).safeTransferFrom(msg.sender, address(this), _amount);
-
+      rebalance();
       // Calculate pool shares
       uint256 shares = 0;
       if (pool == 0) {
         shares = _amount;
         pool = _amount;
       } else {
-        shares = (_amount.mul(totalSupply())).div(pool);
+        if (totalSupply() == 0) {
+          shares = _amount;
+        } else {
+          shares = (_amount.mul(totalSupply())).div(pool);
+        }
       }
       pool = _calcPoolValueInToken();
       _mint(msg.sender, shares);
@@ -107,9 +110,14 @@ contract xUSDC is ERC20, ReentrancyGuard, Ownable, TokenStructs {
 
       // Could have over value from xTokens
       pool = _calcPoolValueInToken();
+      uint256 i = (pool.mul(ibalance)).div(totalSupply());
       // Calc to redeem before updating balances
       uint256 r = (pool.mul(_shares)).div(totalSupply());
-      _burn(msg.sender, _shares);
+      if(i < depositedAmount[msg.sender]){
+        i = i.add(1);
+        r = r.add(1);
+      }
+      uint256 profit = (i.sub(depositedAmount[msg.sender])).mul(_shares.div(depositedAmount[msg.sender]));      
 
       emit Transfer(msg.sender, address(0), _shares);
 
@@ -119,13 +127,15 @@ contract xUSDC is ERC20, ReentrancyGuard, Ownable, TokenStructs {
         _withdrawSome(r.sub(b));
       }
 
-      uint256 fee = (r.sub(depositedAmount[msg.sender])).mul(feeAmount).div(1000);
+      uint256 depositedAmount1 = depositedAmount[msg.sender];
+      uint256 fee = profit.mul(feeAmount).div(1000);
       if(fee > 0){
         IERC20(token).approve(feeAddress, fee);
         ITreasury(feeAddress).depositToken(token);
       }
       IERC20(token).safeTransfer(msg.sender, r.sub(fee));
-      depositedAmount[msg.sender] = depositedAmount[msg.sender].sub(r);
+      _burn(msg.sender, _shares);
+      depositedAmount[msg.sender] = depositedAmount[msg.sender].sub(_shares);
       rebalance();
       pool = _calcPoolValueInToken();
       emit Withdraw(msg.sender, _shares);
