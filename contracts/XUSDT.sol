@@ -35,7 +35,6 @@ contract xUSDT is ERC20, ReentrancyGuard, Ownable, TokenStructs {
   address public fortubeBank;
   address public feeAddress;
   uint256 public feeAmount;
-  uint256 public apy;
 
   mapping (address => uint256) depositedAmount;
 
@@ -141,7 +140,7 @@ contract xUSDT is ERC20, ReentrancyGuard, Ownable, TokenStructs {
   }
   receive() external payable {}
 
-  function recommend() public returns (Lender) {
+  function recommend() public view returns (Lender) {
     (, uint256 fapr,uint256 aapr, uint256 ftapr) = IIEarnManager(apr).recommend(token);
     uint256 max = 0;
     if (fapr > max) {
@@ -162,12 +161,7 @@ contract xUSDT is ERC20, ReentrancyGuard, Ownable, TokenStructs {
     } else if (max == ftapr) {
       newProvider = Lender.FORTUBE;
     }
-    setApy(max);
     return newProvider;
-  }
-
-  function setApy(uint256 max) internal {
-    apy = max;
   }
   
   function getAave() public view returns (address) {
