@@ -31,6 +31,7 @@ contract xAAVE is ERC20, ReentrancyGuard, Ownable, TokenStructs {
   address public apr;
   address public feeAddress;
   uint256 public feeAmount;
+  uint256 public apy;
 
   mapping (address => uint256) depositedAmount;
 
@@ -135,7 +136,7 @@ contract xAAVE is ERC20, ReentrancyGuard, Ownable, TokenStructs {
 
   receive() external payable {}
 
-  function recommend() public view returns (Lender) {
+  function recommend() public returns (Lender) {
     (, uint256 fapr, uint256 aapr, ) = IIEarnManager(apr).recommend(token);
     uint256 max = 0;
     if (fapr > max) {
@@ -150,7 +151,12 @@ contract xAAVE is ERC20, ReentrancyGuard, Ownable, TokenStructs {
     } else if (max == fapr) {
       newProvider = Lender.FULCRUM;
     }
+    setApy(max);
     return newProvider;
+  }
+
+  function setApy(uint256 max) internal {
+    apy = max;
   }
 
   function balance() public view returns (uint256) {
