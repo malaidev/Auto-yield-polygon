@@ -1,5 +1,5 @@
 {
-  "name": "XEther",
+  "name": "autoyieldpoly",
   "version": "1.0.0",
   "description": "",
   "main": "truffle-config.js",
@@ -9,7 +9,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "StarsIdea <mvstars123@gmail.com>",
+  "author": "IntelMin <intelmin0915@gmail.com>",
   "license": "ISC",
   "dependencies": {
     "chai": "^4.2.0",
@@ -28,5 +28,5 @@
     "truffle-hdwallet-provider": "^1.0.17",
     "web3": "1.0.0-beta.33"
   },
-  "repository": "https://github.com/starsidea/polygon-earn"
+  "repository": "https://github.com/IntelMin/auto-yield-polygon"
 }
