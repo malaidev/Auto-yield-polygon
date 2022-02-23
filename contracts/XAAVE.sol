@@ -1,354 +1,24 @@
-pragma solidity ^0.5.0;
+// SPDX-License-Identifier: MIT
+pragma solidity 0.6.8;
 pragma experimental ABIEncoderV2;
 
-interface IERC20 {
-    function totalSupply() external view returns (uint256);
-    function balanceOf(address account) external view returns (uint256);
-    function transfer(address recipient, uint256 amount) external returns (bool);
-    function allowance(address owner, address spender) external view returns (uint256);
-    function approve(address spender, uint256 amount) external returns (bool);
-    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
-    event Transfer(address indexed from, address indexed to, uint256 value);
-    event Approval(address indexed owner, address indexed spender, uint256 value);
-}
+import './libraries/Context.sol';
+import './libraries/Ownable.sol';
+import './interfaces/IERC20.sol';
+import './libraries/SafeMath.sol';
+import './libraries/Decimal.sol';
+import './libraries/Address.sol';
+import './libraries/SafeERC20.sol';
+import './libraries/ReentrancyGuard.sol';
+import './libraries/ERC20.sol';
+import './libraries/TokenStructs.sol';
+import './interfaces/Aave.sol';
+import './interfaces/Fulcrum.sol';
+import './interfaces/IIEarnManager.sol';
+import './interfaces/LendingPoolAddressesProvider.sol';
+import './interfaces/ITreasury.sol';
 
-contract Context {
-    constructor () internal { }
-
-    function _msgSender() internal view returns (address payable) {
-        return msg.sender;
-    }
-
-    function _msgData() internal view returns (bytes memory) {
-        this; 
-        return msg.data;
-    }
-}
-
-contract ERC20 is Context, IERC20 {
-    using SafeMath for uint256;
-
-    mapping (address => uint256) _balances;
-
-    mapping (address => mapping (address => uint256)) private _allowances;
-
-    uint256 _totalSupply;
-    function totalSupply() public view returns (uint256) {
-        return _totalSupply;
-    }
-    function balanceOf(address account) public view returns (uint256) {
-        return _balances[account];
-    }
-    function transfer(address recipient, uint256 amount) public returns (bool) {
-        _transfer(_msgSender(), recipient, amount);
-        return true;
-    }
-    function allowance(address owner, address spender) public view returns (uint256) {
-        return _allowances[owner][spender];
-    }
-    function approve(address spender, uint256 amount) public returns (bool) {
-        _approve(_msgSender(), spender, amount);
-        return true;
-    }
-    function transferFrom(address sender, address recipient, uint256 amount) public returns (bool) {
-        _transfer(sender, recipient, amount);
-        _approve(sender, _msgSender(), _allowances[sender][_msgSender()].sub(amount, "ERC20: transfer amount exceeds allowance"));
-        return true;
-    }
-    function increaseAllowance(address spender, uint256 addedValue) public returns (bool) {
-        _approve(_msgSender(), spender, _allowances[_msgSender()][spender].add(addedValue));
-        return true;
-    }
-    function decreaseAllowance(address spender, uint256 subtractedValue) public returns (bool) {
-        _approve(_msgSender(), spender, _allowances[_msgSender()][spender].sub(subtractedValue, "ERC20: decreased allowance below zero"));
-        return true;
-    }
-    function _transfer(address sender, address recipient, uint256 amount) internal {
-        require(sender != address(0), "ERC20: transfer from the zero address");
-        require(recipient != address(0), "ERC20: transfer to the zero address");
-
-        _balances[sender] = _balances[sender].sub(amount, "ERC20: transfer amount exceeds balance");
-        _balances[recipient] = _balances[recipient].add(amount);
-        emit Transfer(sender, recipient, amount);
-    }
-    function _mint(address account, uint256 amount) internal {
-        require(account != address(0), "ERC20: mint to the zero address");
-
-        _totalSupply = _totalSupply.add(amount);
-        _balances[account] = _balances[account].add(amount);
-        emit Transfer(address(0), account, amount);
-    }
-    function _burn(address account, uint256 amount) internal {
-        require(account != address(0), "ERC20: burn from the zero address");
-
-        _balances[account] = _balances[account].sub(amount, "ERC20: burn amount exceeds balance");
-        _totalSupply = _totalSupply.sub(amount);
-        emit Transfer(account, address(0), amount);
-    }
-    function _approve(address owner, address spender, uint256 amount) internal {
-        require(owner != address(0), "ERC20: approve from the zero address");
-        require(spender != address(0), "ERC20: approve to the zero address");
-
-        _allowances[owner][spender] = amount;
-        emit Approval(owner, spender, amount);
-    }
-    function _burnFrom(address account, uint256 amount) internal {
-        _burn(account, amount);
-        _approve(account, _msgSender(), _allowances[account][_msgSender()].sub(amount, "ERC20: burn amount exceeds allowance"));
-    }
-}
-
-contract ERC20Detailed is IERC20 {
-    string private _name;
-    string private _symbol;
-    uint8 private _decimals;
-
-    constructor (string memory name, string memory symbol, uint8 decimals) public {
-        _name = name;
-        _symbol = symbol;
-        _decimals = decimals;
-    }
-    function name() public view returns (string memory) {
-        return _name;
-    }
-    function symbol() public view returns (string memory) {
-        return _symbol;
-    }
-    function decimals() public view returns (uint8) {
-        return _decimals;
-    }
-}
-
-contract ReentrancyGuard {
-    uint256 private _guardCounter;
-
-    constructor () internal {
-        _guardCounter = 1;
-    }
-
-    modifier nonReentrant() {
-        _guardCounter += 1;
-        uint256 localCounter = _guardCounter;
-        _;
-        require(localCounter == _guardCounter, "ReentrancyGuard: reentrant call");
-    }
-}
-
-contract Ownable is Context {
-    address private _owner;
-
-    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
-    constructor () internal {
-        _owner = _msgSender();
-        emit OwnershipTransferred(address(0), _owner);
-    }
-    function owner() public view returns (address) {
-        return _owner;
-    }
-    modifier onlyOwner() {
-        require(isOwner(), "Ownable: caller is not the owner");
-        _;
-    }
-    function isOwner() public view returns (bool) {
-        return _msgSender() == _owner;
-    }
-    function renounceOwnership() public onlyOwner {
-        emit OwnershipTransferred(_owner, address(0));
-        _owner = address(0);
-    }
-    function transferOwnership(address newOwner) public onlyOwner {
-        _transferOwnership(newOwner);
-    }
-    function _transferOwnership(address newOwner) internal {
-        require(newOwner != address(0), "Ownable: new owner is the zero address");
-        emit OwnershipTransferred(_owner, newOwner);
-        _owner = newOwner;
-    }
-}
-
-library SafeMath {
-    function add(uint256 a, uint256 b) internal pure returns (uint256) {
-        uint256 c = a + b;
-        require(c >= a, "SafeMath: addition overflow");
-
-        return c;
-    }
-    function sub(uint256 a, uint256 b) internal pure returns (uint256) {
-        return sub(a, b, "SafeMath: subtraction overflow");
-    }
-    function sub(uint256 a, uint256 b, string memory errorMessage) internal pure returns (uint256) {
-        require(b <= a, errorMessage);
-        uint256 c = a - b;
-
-        return c;
-    }
-    function mul(uint256 a, uint256 b) internal pure returns (uint256) {
-        if (a == 0) {
-            return 0;
-        }
-
-        uint256 c = a * b;
-        require(c / a == b, "SafeMath: multiplication overflow");
-
-        return c;
-    }
-    function div(uint256 a, uint256 b) internal pure returns (uint256) {
-        return div(a, b, "SafeMath: division by zero");
-    }
-    function div(uint256 a, uint256 b, string memory errorMessage) internal pure returns (uint256) {
-        // Solidity only automatically asserts when dividing by 0
-        require(b > 0, errorMessage);
-        uint256 c = a / b;
-
-        return c;
-    }
-    function mod(uint256 a, uint256 b) internal pure returns (uint256) {
-        return mod(a, b, "SafeMath: modulo by zero");
-    }
-    function mod(uint256 a, uint256 b, string memory errorMessage) internal pure returns (uint256) {
-        require(b != 0, errorMessage);
-        return a % b;
-    }
-}
-
-library Address {
-    function isContract(address account) internal view returns (bool) {
-        bytes32 codehash;
-        bytes32 accountHash = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470;
-
-        assembly { codehash := extcodehash(account) }
-        return (codehash != 0x0 && codehash != accountHash);
-    }
-    function toPayable(address account) internal pure returns (address payable) {
-        return address(uint160(account));
-    }
-    function sendValue(address payable recipient, uint256 amount) internal {
-        require(address(this).balance >= amount, "Address: insufficient balance");
-
-        (bool success, ) = recipient.call.value(amount)("");
-        require(success, "Address: unable to send value, recipient may have reverted");
-    }
-}
-
-library SafeERC20 {
-    using SafeMath for uint256;
-    using Address for address;
-
-    function safeTransfer(IERC20 token, address to, uint256 value) internal {
-        callOptionalReturn(token, abi.encodeWithSelector(token.transfer.selector, to, value));
-    }
-
-    function safeTransferFrom(IERC20 token, address from, address to, uint256 value) internal {
-        callOptionalReturn(token, abi.encodeWithSelector(token.transferFrom.selector, from, to, value));
-    }
-
-    function safeApprove(IERC20 token, address spender, uint256 value) internal {
-        require((value == 0) || (token.allowance(address(this), spender) == 0),
-            "SafeERC20: approve from non-zero to non-zero allowance"
-        );
-        callOptionalReturn(token, abi.encodeWithSelector(token.approve.selector, spender, value));
-    }
-
-    function safeIncreaseAllowance(IERC20 token, address spender, uint256 value) internal {
-        uint256 newAllowance = token.allowance(address(this), spender).add(value);
-        callOptionalReturn(token, abi.encodeWithSelector(token.approve.selector, spender, newAllowance));
-    }
-
-    function safeDecreaseAllowance(IERC20 token, address spender, uint256 value) internal {
-        uint256 newAllowance = token.allowance(address(this), spender).sub(value, "SafeERC20: decreased allowance below zero");
-        callOptionalReturn(token, abi.encodeWithSelector(token.approve.selector, spender, newAllowance));
-    }
-    function callOptionalReturn(IERC20 token, bytes memory data) private {
-        require(address(token).isContract(), "SafeERC20: call to non-contract");
-
-        (bool success, bytes memory returndata) = address(token).call(data);
-        require(success, "SafeERC20: low-level call failed");
-
-        if (returndata.length > 0) {
-            require(abi.decode(returndata, (bool)), "SafeERC20: ERC20 operation did not succeed");
-        }
-    }
-}
-
-interface Fulcrum {
-    function mint(address receiver, uint256 amount) external payable returns (uint256 mintAmount);
-    function burn(address receiver, uint256 burnAmount) external returns (uint256 loanAmountPaid);
-    function assetBalanceOf(address _owner) external view returns (uint256 balance);
-}
-
-interface ILendingPoolAddressesProvider {
-    function getLendingPool() external view returns (address);
-}
-
-interface Aave {
-    function deposit(address _reserve, uint256 _amount, uint16 _referralCode) external;
-}
-
-interface AToken {
-    function redeem(uint256 amount) external;
-}
-
-interface IIEarnManager {
-    function recommend(address _token) external view returns (
-      string memory choice,
-      uint256 fapr,
-      uint256 aapr
-    );
-}
-
-contract Structs {
-    struct Val {
-        uint256 value;
-    }
-
-    enum ActionType {
-        Deposit,   // supply tokens
-        Withdraw  // borrow tokens
-    }
-
-    enum AssetDenomination {
-        Wei // the amount is denominated in wei
-    }
-
-    enum AssetReference {
-        Delta // the amount is given as a delta from the current value
-    }
-
-    struct AssetAmount {
-        bool sign; // true if positive
-        AssetDenomination denomination;
-        AssetReference ref;
-        uint256 value;
-    }
-
-    struct ActionArgs {
-        ActionType actionType;
-        uint256 accountId;
-        AssetAmount amount;
-        uint256 primaryMarketId;
-        uint256 secondaryMarketId;
-        address otherAddress;
-        uint256 otherAccountId;
-        bytes data;
-    }
-
-    struct Info {
-        address owner;  // The address that owns the account
-        uint256 number; // A nonce that allows a single address to control many accounts
-    }
-
-    struct Wei {
-        bool sign; // true if positive
-        uint256 value;
-    }
-}
-
-interface LendingPoolAddressesProvider {
-    function getLendingPool() external view returns (address);
-    function getLendingPoolCore() external view returns (address);
-}
-
-contract xAAVE is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
+contract xAAVE is ERC20, ReentrancyGuard, Ownable, TokenStructs {
   using SafeERC20 for IERC20;
   using Address for address;
   using SafeMath for uint256;
@@ -359,6 +29,10 @@ contract xAAVE is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
   address public aave;
   address public aaveToken;
   address public apr;
+  address public feeAddress;
+  uint256 public feeAmount;
+
+  mapping (address => uint256) depositedAmount;
 
   enum Lender {
       NONE,
@@ -368,33 +42,101 @@ contract xAAVE is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
 
   Lender public provider = Lender.NONE;
 
-  constructor () public ERC20Detailed("xAAVE", "xAAVE", 6) {
-    token = address(0xdAC17F958D2ee523a2206206994597C13D831ec7);
-    apr = address(0x318135fbD0b40D48fCEF431CCdF6C7926450edFB);
-    aave = address(0x24a42fD28C976A61Df5D00D0599C34c4f90748c8);
-    fulcrum = address(0xF013406A0B1d544238083DF0B93ad0d2cBE0f65f);
-    aaveToken = address(0x71fc860F7D3A592A4a98740e39dB31d25db65ae8);
-    // approveToken();
+  constructor () public ERC20("xend AAVE", "xAAVE") {
+    token = address(0xD6DF932A45C0f255f85145f286eA0b292B21C90B);
+    apr = address(0xdD6d648C991f7d47454354f4Ef326b04025a48A8);
+    aave = address(0xd05e3E715d945B59290df0ae8eF85c1BdB684744);
+    fulcrum = address(0xf009c28b2D9E13886105714B895f013E2e43EE12);
+    aaveToken = address(0x1d2a0E5EC8E5bBDCA5CB219e649B565d8e5c3360);
+    feeAddress = address(0xfa4002f80A366d1829Be3160Ac7f5802dE5EEAf4);
+    feeAmount = 0;
+    approveToken();
   }
-  function set_new_AAVE(address _new_AAVE) public onlyOwner {
-      aave = _new_AAVE;
-  }
+
+  // Ownable setters incase of support in future for these systems
   function set_new_APR(address _new_APR) public onlyOwner {
       apr = _new_APR;
   }
-  function set_new_FULCRUM(address _new_FULCRUM) public onlyOwner {
-      fulcrum = _new_FULCRUM;
+  function set_new_feeAmount(uint256 fee) public onlyOwner{
+    require(fee < 1000, 'fee amount must be less than 100%');
+    feeAmount = fee;
   }
-  function set_new_ATOKEN(address _new_ATOKEN) public onlyOwner {
-      aaveToken = _new_ATOKEN;
+  function set_new_fee_address(address _new_fee_address) public onlyOwner {
+      feeAddress = _new_fee_address;
+  }
+  // Quick swap low gas method for pool swaps
+  function deposit(uint256 _amount)
+      external
+      nonReentrant
+  {
+      require(_amount > 0, "deposit must be greater than 0");
+      pool = _calcPoolValueInToken();
+      IERC20(token).safeTransferFrom(msg.sender, address(this), _amount);
+      rebalance();
+      // Calculate pool shares
+      uint256 shares = 0;
+      if (pool == 0) {
+        shares = _amount;
+        pool = _amount;
+      } else {
+        if (totalSupply() == 0) {
+          shares = _amount;
+        } else {
+          shares = (_amount.mul(totalSupply())).div(pool);
+        }
+      }
+      pool = _calcPoolValueInToken();
+      _mint(msg.sender, shares);
+      depositedAmount[msg.sender] = depositedAmount[msg.sender].add(_amount);
+      emit Deposit(msg.sender, _amount);
   }
 
-  function() external payable {
+  // No rebalance implementation for lower fees and faster swaps
+  function withdraw(uint256 _shares)
+      external
+      nonReentrant
+  {
+      require(_shares > 0, "withdraw must be greater than 0");
 
+      uint256 ibalance = balanceOf(msg.sender);
+      require(_shares <= ibalance, "insufficient balance");
+
+      // Could have over value from xTokens
+      pool = _calcPoolValueInToken();
+      uint256 i = (pool.mul(ibalance)).div(totalSupply());
+      // Calc to redeem before updating balances
+      uint256 r = (pool.mul(_shares)).div(totalSupply());
+      if(i < depositedAmount[msg.sender]){
+        i = i.add(1);
+        r = r.add(1);
+      }
+      uint256 profit = (i.sub(depositedAmount[msg.sender])).mul(_shares.div(depositedAmount[msg.sender]));      
+
+      emit Transfer(msg.sender, address(0), _shares);
+
+      // Check balance
+      uint256 b = IERC20(token).balanceOf(address(this));
+      if (b < r) {
+        _withdrawSome(r.sub(b));
+      }
+
+      uint256 fee = profit.mul(feeAmount).div(1000);
+      if(fee > 0){
+        IERC20(token).approve(feeAddress, fee);
+        ITreasury(feeAddress).depositToken(token);
+      }
+      IERC20(token).safeTransfer(msg.sender, r.sub(fee));
+      _burn(msg.sender, _shares);
+      depositedAmount[msg.sender] = depositedAmount[msg.sender].sub(_shares);
+      rebalance();
+      pool = _calcPoolValueInToken();
+      emit Withdraw(msg.sender, _shares);
   }
+
+  receive() external payable {}
 
   function recommend() public view returns (Lender) {
-    (, uint256 fapr, uint256 aapr) = IIEarnManager(apr).recommend(token);
+    (, uint256 fapr, uint256 aapr, ) = IIEarnManager(apr).recommend(token);
     uint256 max = 0;
     if (fapr > max) {
       max = fapr;
@@ -405,8 +147,7 @@ contract xAAVE is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
     Lender newProvider = Lender.NONE;
     if (max == aapr) {
       newProvider = Lender.AAVE;
-    }
-    if (max == fapr) {
+    } else if (max == fapr) {
       newProvider = Lender.FULCRUM;
     }
     return newProvider;
@@ -419,13 +160,14 @@ contract xAAVE is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
   function getAave() public view returns (address) {
     return LendingPoolAddressesProvider(aave).getLendingPool();
   }
-  function getAaveCore() public view returns (address) {
-    return LendingPoolAddressesProvider(aave).getLendingPoolCore();
+
+  function getDepositedAmount(address investor) public view returns (uint256) {
+    return depositedAmount[investor];
   }
 
   function approveToken() public {
-      IERC20(token).safeApprove(getAaveCore(), uint(-1));
-      IERC20(token).safeApprove(fulcrum, uint(-1));
+      IERC20(token).approve(getAave(), uint(-1));
+      IERC20(token).approve(fulcrum, uint(-1));
   }
 
   function balanceFulcrumInToken() public view returns (uint256) {
@@ -442,24 +184,53 @@ contract xAAVE is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
     return IERC20(aaveToken).balanceOf(address(this));
   }
 
-  function withdrawAll() internal {
-    uint256 amount = balanceFulcrum();
-    if (amount > 0) {
-      withdrawFulcrum(amount);
+  function _balance() internal view returns (uint256) {
+    return IERC20(token).balanceOf(address(this));
+  }
+
+  function _balanceFulcrumInToken() internal view returns (uint256) {
+    uint256 b = balanceFulcrum();
+    if (b > 0) {
+      b = Fulcrum(fulcrum).assetBalanceOf(address(this));
     }
-    amount = balanceAave();
+    return b;
+  }
+
+  function _balanceFulcrum() internal view returns (uint256) {
+    return IERC20(fulcrum).balanceOf(address(this));
+  }
+  function _balanceAave() internal view returns (uint256) {
+    return IERC20(aaveToken).balanceOf(address(this));
+  }
+
+  function _withdrawAll() internal {
+    uint256  amount = _balanceFulcrum();
     if (amount > 0) {
-      withdrawAave(amount);
+      _withdrawFulcrum(amount);
+    }
+    amount = _balanceAave();
+    if (amount > 0) {
+      _withdrawAave(amount);
     }
   }
 
-  function withdrawSome(uint256 _amount) internal {
+  function _withdrawSomeFulcrum(uint256 _amount) internal {
+    uint256 b = balanceFulcrum();
+    // Balance of token in fulcrum
+    uint256 bT = balanceFulcrumInToken();
+    require(bT >= _amount, "insufficient funds");
+    // can have unintentional rounding errors
+    uint256 amount = (b.mul(_amount)).div(bT).add(1);
+    _withdrawFulcrum(amount);
+  }
+
+  function _withdrawSome(uint256 _amount) internal {
     if (provider == Lender.AAVE) {
       require(balanceAave() >= _amount, "insufficient funds");
-      withdrawAave(_amount);
+      _withdrawAave(_amount);
     }
     if (provider == Lender.FULCRUM) {
-      withdrawFulcrum(_amount);
+      _withdrawSomeFulcrum(_amount);
     }
   }
 
@@ -467,66 +238,50 @@ contract xAAVE is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
     Lender newProvider = recommend();
 
     if (newProvider != provider) {
-      withdrawAll();
+      _withdrawAll();
     }
 
     if (balance() > 0) {
       if (newProvider == Lender.FULCRUM) {
         supplyFulcrum(balance());
-      }
-      if (newProvider == Lender.AAVE) {
+      } else if (newProvider == Lender.AAVE) {
         supplyAave(balance());
+      }
+    }
+
+    provider = newProvider;
+  }
+
+  // Internal only rebalance for better gas in redeem
+  function _rebalance(Lender newProvider) internal {
+    if (_balance() > 0) {
+      if (newProvider == Lender.FULCRUM) {
+        supplyFulcrum(_balance());
+      } else if (newProvider == Lender.AAVE) {
+        supplyAave(_balance());
       }
     }
     provider = newProvider;
   }
 
   function supplyAave(uint amount) public {
-      Aave(getAave()).deposit(token, amount, 0);
+      Aave(getAave()).deposit(token, amount, address(this), 0);
   }
   function supplyFulcrum(uint amount) public {
       require(Fulcrum(fulcrum).mint(address(this), amount) > 0, "FULCRUM: supply failed");
   }
-  function withdrawAave(uint amount) internal {
-      AToken(aaveToken).redeem(amount);
+
+  function _withdrawAave(uint amount) internal {
+      require(Aave(getAave()).withdraw(token, amount, address(this)) > 0, "AAVE: withdraw failed");
   }
-  function withdrawFulcrum(uint amount) internal {
+  function _withdrawFulcrum(uint amount) internal {
       require(Fulcrum(fulcrum).burn(address(this), amount) > 0, "FULCRUM: withdraw failed");
   }
 
-  function invest(uint256 _amount)
-      external
-      nonReentrant
-  {
-      require(_amount > 0, "deposit must be greater than 0");
-      pool = calcPoolValueInToken();
-
-      IERC20(token).safeTransferFrom(msg.sender, address(this), _amount);
-
-      rebalance();
-
-      // Calculate pool shares
-      uint256 shares = 0;
-      if (pool == 0) {
-        shares = _amount;
-        pool = _amount;
-      } else {
-        shares = (_amount.mul(_totalSupply)).div(pool);
-      }
-      pool = calcPoolValueInToken();
-      _mint(msg.sender, shares);
-  }
-
-  // Invest self eth from external profits
-  function investSelf()
-      external
-      nonReentrant
-      onlyOwner
-  {
-      uint b = IERC20(token).balanceOf(address(this));
-      require(b > 0, "deposit must be greater than 0");
-      rebalance();
-      pool = calcPoolValueInToken();
+  function _calcPoolValueInToken() internal view returns (uint) {
+    return _balanceFulcrumInToken()
+      .add(_balanceAave())
+      .add(_balance());
   }
 
   function calcPoolValueInToken() public view returns (uint) {
@@ -538,40 +293,6 @@ contract xAAVE is ERC20, ERC20Detailed, ReentrancyGuard, Ownable, Structs {
 
   function getPricePerFullShare() public view returns (uint) {
     uint _pool = calcPoolValueInToken();
-    return _pool.mul(1e18).div(_totalSupply);
-  }
-
-  // Redeem any invested tokens from the pool
-  function redeem(uint256 _shares)
-      external
-      nonReentrant
-  {
-      require(_shares > 0, "withdraw must be greater than 0");
-
-      uint256 ibalance = balanceOf(msg.sender);
-      require(_shares <= ibalance, "insufficient balance");
-
-      // Could have over value from cTokens
-      pool = calcPoolValueInToken();
-      // Calc eth to redeem before updating balances
-      uint256 r = (pool.mul(_shares)).div(_totalSupply);
-
-
-      _balances[msg.sender] = _balances[msg.sender].sub(_shares, "redeem amount exceeds balance");
-      _totalSupply = _totalSupply.sub(_shares);
-
-      emit Transfer(msg.sender, address(0), _shares);
-
-      // Check ETH balance
-      uint256 b = IERC20(token).balanceOf(address(this));
-      if (b < r) {
-        withdrawSome(r);
-      }
-
-      IERC20(token).safeTransfer(msg.sender, r);
-
-      rebalance();
-      pool = calcPoolValueInToken();
-
+    return _pool.mul(1e18).div(totalSupply());
   }
 }
