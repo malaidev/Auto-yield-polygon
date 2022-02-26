@@ -30,7 +30,9 @@ contract xMCP is ERC20, ReentrancyGuard, Ownable, TokenStructs {
   address public token;
   address public fulcrum;
   address public aave;
+  address public mcp;
   address public aaveToken;
+  address public mcpToken;
   address public apr;
   address public fortubeToken;
   address public fortubeBank;
@@ -52,8 +54,10 @@ contract xMCP is ERC20, ReentrancyGuard, Ownable, TokenStructs {
     token = address(0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174);
     apr = address(0xdD6d648C991f7d47454354f4Ef326b04025a48A8);
     aave = address(0xd05e3E715d945B59290df0ae8eF85c1BdB684744);
+    mcp = address(0x1144B522F45265C2DFDBAEE8E324719E63A1694C);
     fulcrum = address(0x2E1A74a16e3a9F8e3d825902Ab9fb87c606cB13f);
     aaveToken = address(0x1a13F4Ca1d028320A707D99520AbFefca3998b7F);
+    mcpToken = address(0xc1d059703c0984a1d1344cda5ca4fa693154abca);
     fortubeToken = address(0xf330b39f74e7f71ab9604A5307690872b8125aC8);
     fortubeBank = address(0x170371bbcfFf200bFB90333e799B9631A7680Cc5);
     feeAddress = address(0xfa4002f80A366d1829Be3160Ac7f5802dE5EEAf4);
@@ -206,6 +210,9 @@ contract xMCP is ERC20, ReentrancyGuard, Ownable, TokenStructs {
   function balanceAave() public view returns (uint256) {
     return IERC20(aaveToken).balanceOf(address(this));
   }
+  function balanceMcp() public view returns (uint256) {
+    return IERC20(mcpToken).balanceOf(address(this));
+  }
   function balanceFortube() public view returns (uint256) {
     return FortubeToken(fortubeToken).balanceOf(address(this));
   }
@@ -237,6 +244,9 @@ contract xMCP is ERC20, ReentrancyGuard, Ownable, TokenStructs {
   }
   function _balanceAave() internal view returns (uint256) {
     return IERC20(aaveToken).balanceOf(address(this));
+  }
+  function _balanceMcp() internal view returns (uint256) {
+    return IERC20(mcpToken).balanceOf(address(this));
   }
   function _balanceFortube() internal view returns (uint256) {
     return IERC20(fortubeToken).balanceOf(address(this));
